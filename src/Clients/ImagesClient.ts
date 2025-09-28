@@ -30,6 +30,16 @@ class ImagesClient extends BaseClient {
       throw new Error(`Couldn't upload image for param ${paramId}: ${err}`);
     }
   }
+
+  // Opcjonalnie, jeśli serwis obrazków wspiera kasowanie:
+  async deleteParamImage(paramId: number): Promise<void> {
+    try {
+      await this.axiosInstance.delete(`/params/${paramId}`);
+    } catch (err) {
+      // Best-effort: nie blokujemy całej operacji usuwania parametru
+      console.warn(`Couldn't delete image for param ${paramId}:`, err);
+    }
+  }
 }
 
 export default ImagesClient;

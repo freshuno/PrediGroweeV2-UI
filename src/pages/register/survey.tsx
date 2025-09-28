@@ -18,6 +18,259 @@ import StatsClient from '@/Clients/StatsClient';
 import { useRouter } from 'next/router';
 import { UserSurvey } from '@/types';
 
+const COUNTRIES = [
+  'Afghanistan',
+  'Åland Islands',
+  'Albania',
+  'Algeria',
+  'American Samoa',
+  'Andorra',
+  'Angola',
+  'Anguilla',
+  'Antarctica',
+  'Antigua and Barbuda',
+  'Argentina',
+  'Armenia',
+  'Aruba',
+  'Australia',
+  'Austria',
+  'Azerbaijan',
+  'Bahamas',
+  'Bahrain',
+  'Bangladesh',
+  'Barbados',
+  'Belarus',
+  'Belgium',
+  'Belize',
+  'Benin',
+  'Bermuda',
+  'Bhutan',
+  'Bolivia (Plurinational State of)',
+  'Bonaire, Sint Eustatius and Saba',
+  'Bosnia and Herzegovina',
+  'Botswana',
+  'Bouvet Island',
+  'Brazil',
+  'British Indian Ocean Territory',
+  'Brunei Darussalam',
+  'Bulgaria',
+  'Burkina Faso',
+  'Burundi',
+  'Cabo Verde',
+  'Cambodia',
+  'Cameroon',
+  'Canada',
+  'Cayman Islands',
+  'Central African Republic',
+  'Chad',
+  'Chile',
+  'China',
+  'Christmas Island',
+  'Cocos (Keeling) Islands',
+  'Colombia',
+  'Comoros',
+  'Congo',
+  'Congo, Democratic Republic of the',
+  'Cook Islands',
+  'Costa Rica',
+  'Côte d’Ivoire',
+  'Croatia',
+  'Cuba',
+  'Curaçao',
+  'Cyprus',
+  'Czechia',
+  'Denmark',
+  'Djibouti',
+  'Dominica',
+  'Dominican Republic',
+  'Ecuador',
+  'Egypt',
+  'El Salvador',
+  'Equatorial Guinea',
+  'Eritrea',
+  'Estonia',
+  'Eswatini',
+  'Ethiopia',
+  'Falkland Islands (Malvinas)',
+  'Faroe Islands',
+  'Fiji',
+  'Finland',
+  'France',
+  'French Guiana',
+  'French Polynesia',
+  'French Southern Territories',
+  'Gabon',
+  'Gambia',
+  'Georgia',
+  'Germany',
+  'Ghana',
+  'Gibraltar',
+  'Greece',
+  'Greenland',
+  'Grenada',
+  'Guadeloupe',
+  'Guam',
+  'Guatemala',
+  'Guernsey',
+  'Guinea',
+  'Guinea-Bissau',
+  'Guyana',
+  'Haiti',
+  'Heard Island and McDonald Islands',
+  'Holy See',
+  'Honduras',
+  'Hong Kong',
+  'Hungary',
+  'Iceland',
+  'India',
+  'Indonesia',
+  'Iran (Islamic Republic of)',
+  'Iraq',
+  'Ireland',
+  'Isle of Man',
+  'Israel',
+  'Italy',
+  'Jamaica',
+  'Japan',
+  'Jersey',
+  'Jordan',
+  'Kazakhstan',
+  'Kenya',
+  'Kiribati',
+  'Korea (Democratic People’s Republic of)',
+  'Korea, Republic of',
+  'Kuwait',
+  'Kyrgyzstan',
+  'Lao People’s Democratic Republic',
+  'Latvia',
+  'Lebanon',
+  'Lesotho',
+  'Liberia',
+  'Libya',
+  'Liechtenstein',
+  'Lithuania',
+  'Luxembourg',
+  'Macao',
+  'Madagascar',
+  'Malawi',
+  'Malaysia',
+  'Maldives',
+  'Mali',
+  'Malta',
+  'Marshall Islands',
+  'Martinique',
+  'Mauritania',
+  'Mauritius',
+  'Mayotte',
+  'Mexico',
+  'Micronesia (Federated States of)',
+  'Moldova, Republic of',
+  'Monaco',
+  'Mongolia',
+  'Montenegro',
+  'Montserrat',
+  'Morocco',
+  'Mozambique',
+  'Myanmar',
+  'Namibia',
+  'Nauru',
+  'Nepal',
+  'Netherlands',
+  'New Caledonia',
+  'New Zealand',
+  'Nicaragua',
+  'Niger',
+  'Nigeria',
+  'Niue',
+  'Norfolk Island',
+  'North Macedonia',
+  'Northern Mariana Islands',
+  'Norway',
+  'Oman',
+  'Pakistan',
+  'Palau',
+  'Palestine, State of',
+  'Panama',
+  'Papua New Guinea',
+  'Paraguay',
+  'Peru',
+  'Philippines',
+  'Pitcairn',
+  'Poland',
+  'Portugal',
+  'Puerto Rico',
+  'Qatar',
+  'Réunion',
+  'Romania',
+  'Russian Federation',
+  'Rwanda',
+  'Saint Barthélemy',
+  'Saint Helena, Ascension and Tristan da Cunha',
+  'Saint Kitts and Nevis',
+  'Saint Lucia',
+  'Saint Martin (French part)',
+  'Saint Pierre and Miquelon',
+  'Saint Vincent and the Grenadines',
+  'Samoa',
+  'San Marino',
+  'Sao Tome and Principe',
+  'Saudi Arabia',
+  'Senegal',
+  'Serbia',
+  'Seychelles',
+  'Sierra Leone',
+  'Singapore',
+  'Sint Maarten (Dutch part)',
+  'Slovakia',
+  'Slovenia',
+  'Solomon Islands',
+  'Somalia',
+  'South Africa',
+  'South Georgia and the South Sandwich Islands',
+  'South Sudan',
+  'Spain',
+  'Sri Lanka',
+  'Sudan',
+  'Suriname',
+  'Svalbard and Jan Mayen',
+  'Sweden',
+  'Switzerland',
+  'Syrian Arab Republic',
+  'Taiwan, Province of China',
+  'Tajikistan',
+  'Tanzania, United Republic of',
+  'Thailand',
+  'Timor-Leste',
+  'Togo',
+  'Tokelau',
+  'Tonga',
+  'Trinidad and Tobago',
+  'Tunisia',
+  'Turkey',
+  'Turkmenistan',
+  'Turks and Caicos Islands',
+  'Tuvalu',
+  'Uganda',
+  'Ukraine',
+  'United Arab Emirates',
+  'United Kingdom',
+  'United States',
+  'United States Minor Outlying Islands',
+  'Uruguay',
+  'Uzbekistan',
+  'Vanuatu',
+  'Venezuela (Bolivarian Republic of)',
+  'Viet Nam',
+  'Virgin Islands (British)',
+  'Virgin Islands (U.S.)',
+  'Wallis and Futuna',
+  'Western Sahara',
+  'Yemen',
+  'Zambia',
+  'Zimbabwe',
+  'Other',
+];
+
 const SurveyPage = () => {
   const statsClient = new StatsClient(STATS_SERVICE_URL);
   const router = useRouter();
@@ -35,32 +288,65 @@ const SurveyPage = () => {
   const [isError, setIsError] = useState(false);
   const [touchedFields, setTouchedFields] = useState<Record<string, boolean>>({});
 
-  const handleChange = (e: { target: { name: string; value: string } }) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
     setTouchedFields((prev) => ({ ...prev, [name]: true }));
 
     if (name === 'age') {
-      if (parseInt(value) < 1 || parseInt(value) > 120) {
-        setIsError(true);
-      } else {
-        setIsError(false);
-      }
+      const num = value === '' ? 0 : parseInt(value, 10);
+      setFormData((prev) => ({ ...prev, age: num }));
+      setIsError(num < 1 || num > 120);
+      return;
     }
+
+    if (name === 'acknowledgements') {
+      setFormData((prev) => ({ ...prev, acknowledgements: value === 'Yes' }));
+      return;
+    }
+
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleBlur = (fieldName: string) => {
     setTouchedFields((prev) => ({ ...prev, [fieldName]: true }));
   };
 
-  const hasError = (fieldName: string): boolean => {
-    return touchedFields[fieldName] && !formData[fieldName as keyof UserSurvey];
+  const hasError = (fieldName: keyof UserSurvey): boolean => {
+    if (!touchedFields[fieldName as string]) return false;
+    const v = formData[fieldName];
+    switch (fieldName) {
+      case 'age':
+        return !formData.age || formData.age < 1 || formData.age > 120;
+      case 'acknowledgements':
+        return typeof formData.acknowledgements !== 'boolean';
+      default:
+        return (v as unknown as string) === '';
+    }
   };
+
+  const isFormInvalid =
+    isError ||
+    !formData.name.trim() ||
+    !formData.surname.trim() ||
+    !formData.gender ||
+    !formData.age ||
+    formData.age < 1 ||
+    formData.age > 120 ||
+    !formData.country ||
+    !formData.visionDefect ||
+    !formData.education ||
+    !formData.experience ||
+    typeof formData.acknowledgements !== 'boolean';
 
   const handleSubmit = async (e: { preventDefault: () => void }) => {
     e.preventDefault();
+    const payload = {
+      ...formData,
+      age: String(formData.age),
+      acknowledgements: formData.acknowledgements ? 'Yes' : 'No',
+    };
     try {
-      await statsClient.saveUserSurveyAnswers(formData);
+      await statsClient.saveUserSurveyAnswers(payload as unknown as UserSurvey);
       await router.push('/quiz');
     } catch {
       await router.push('/quiz');
@@ -75,9 +361,10 @@ const SurveyPage = () => {
             Survey
           </Typography>
           <Typography variant="body2" align="center" gutterBottom>
-            Please fill all the fields to continue
+            All fields are required. Please fill in every field to continue.
           </Typography>
-          <form onSubmit={handleSubmit}>
+
+          <form onSubmit={handleSubmit} noValidate>
             <TextField
               label="Name:"
               name="name"
@@ -89,7 +376,9 @@ const SurveyPage = () => {
               fullWidth
               margin="normal"
               placeholder="Name"
+              required
             />
+
             <TextField
               label="Surname:"
               name="surname"
@@ -101,7 +390,9 @@ const SurveyPage = () => {
               fullWidth
               margin="normal"
               placeholder="Surname"
+              required
             />
+
             <TextField
               select
               label="Gender:"
@@ -114,6 +405,7 @@ const SurveyPage = () => {
               fullWidth
               margin="normal"
               placeholder="Please select one of the options"
+              required
             >
               <MenuItem value="male">Male</MenuItem>
               <MenuItem value="female">Female</MenuItem>
@@ -126,26 +418,36 @@ const SurveyPage = () => {
               name="age"
               value={formData.age === 0 ? '' : formData.age}
               error={isError || hasError('age')}
-              helperText={hasError('age') ? 'Please enter your age' : ''}
+              helperText={hasError('age') ? 'Please enter a valid age (1–120)' : ''}
               onChange={handleChange}
               onBlur={() => handleBlur('age')}
               fullWidth
               margin="normal"
               placeholder="Age"
-              inputProps={{ min: 0 }}
+              inputProps={{ min: 1, max: 120 }}
+              required
             />
 
             <TextField
+              select
               label="Country of origin:"
               name="country"
               value={formData.country}
               onChange={handleChange}
               onBlur={() => handleBlur('country')}
               error={hasError('country')}
-              helperText={hasError('country') ? 'Please enter your country' : ''}
+              helperText={hasError('country') ? 'Please select your country' : ''}
               fullWidth
               margin="normal"
-            />
+              placeholder="Please select one of the options"
+              required
+            >
+              {COUNTRIES.map((c) => (
+                <MenuItem key={c} value={c}>
+                  {c}
+                </MenuItem>
+              ))}
+            </TextField>
 
             <TextField
               select
@@ -159,6 +461,7 @@ const SurveyPage = () => {
               fullWidth
               margin="normal"
               placeholder="Please select one of the options"
+              required
             >
               <MenuItem value="I do not have any vision defects">
                 I do not have any vision defects
@@ -184,6 +487,7 @@ const SurveyPage = () => {
               fullWidth
               margin="normal"
               placeholder="Please select one of the options"
+              required
             >
               <MenuItem value="Dental student">Dental student</MenuItem>
               <MenuItem value="Dental graduate">Dental graduate</MenuItem>
@@ -207,6 +511,7 @@ const SurveyPage = () => {
               fullWidth
               margin="normal"
               placeholder="Please select one of the options"
+              required
             >
               <MenuItem value="Less than 1 year">Less than 1 year</MenuItem>
               <MenuItem value="1-3 years">1-3 years</MenuItem>
@@ -215,13 +520,13 @@ const SurveyPage = () => {
               <MenuItem value="More than 10 years">More than 10 years</MenuItem>
             </TextField>
 
-            <FormControl component="fieldset" margin="normal">
+            <FormControl component="fieldset" margin="normal" required>
               <FormLabel component="legend">
                 Would you like to be included in acknowledgements of our future papers?
               </FormLabel>
               <RadioGroup
                 name="acknowledgements"
-                value={formData.acknowledgements}
+                value={formData.acknowledgements ? 'Yes' : 'No'}
                 onChange={handleChange}
                 row
               >
@@ -231,12 +536,7 @@ const SurveyPage = () => {
             </FormControl>
 
             <Box textAlign="center" mt={2}>
-              <Button
-                type="submit"
-                variant="contained"
-                color="primary"
-                disabled={isError || Object.values(formData).some((val) => val === '')}
-              >
+              <Button type="submit" variant="contained" color="primary" disabled={isFormInvalid}>
                 Save
               </Button>
             </Box>

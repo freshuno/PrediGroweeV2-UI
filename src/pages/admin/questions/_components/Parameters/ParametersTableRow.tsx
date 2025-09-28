@@ -1,8 +1,21 @@
-import { IconButton, TableCell, TableRow, TextField, Button, Box } from '@mui/material';
+import {
+  IconButton,
+  TableCell,
+  TableRow,
+  TextField,
+  Button,
+  Box,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Typography,
+} from '@mui/material';
 import React from 'react';
 import { KeyboardArrowDown, KeyboardArrowUp } from '@mui/icons-material';
 import { Parameter } from '@/types';
 import CheckIcon from '@mui/icons-material/Check';
+import DeleteIcon from '@mui/icons-material/Delete';
 import Image from 'next/image';
 import ImagesClient from '@/Clients/ImagesClient';
 import { IMAGES_SERVICE_URL } from '@/Envs';
@@ -12,10 +25,12 @@ import { useAuthContext } from '@/components/contexts/AuthContext';
 type ParametersTableRowProps = {
   parameter: Parameter;
   handleUpdate: (param: Parameter, image?: File) => void;
+  handleDelete: (id: number) => void;
 };
 
-const ParametersTableRow = ({ parameter, handleUpdate }: ParametersTableRowProps) => {
+const ParametersTableRow = ({ parameter, handleUpdate, handleDelete }: ParametersTableRowProps) => {
   const [open, setOpen] = React.useState(false);
+  const [confirmOpen, setConfirmOpen] = React.useState(false);
   const [updatedParameter, setUpdatedParameter] = React.useState<Parameter>(parameter);
   const [newImage, setNewImage] = React.useState<File | null>(null);
   const [imageUrl, setImageUrl] = React.useState<string>('');
@@ -28,8 +43,9 @@ const ParametersTableRow = ({ parameter, handleUpdate }: ParametersTableRowProps
       try {
         const blob = await imagesClient.getParamImage(parameter?.id);
         setImageUrl(URL.createObjectURL(blob));
-      } catch (err) {
-        console.error('Failed to load image:', err);
+      } catch (e) {
+        // naprawa "no-unused-vars": użyj wyjątku
+        console.warn('Failed to load image for param', parameter?.id, e);
       }
     };
     if (open) {
@@ -73,18 +89,48 @@ const ParametersTableRow = ({ parameter, handleUpdate }: ParametersTableRowProps
         <TableCell>{parameter.name}</TableCell>
         <TableCell>{parameter.description}</TableCell>
         <TableCell>{parameter.referenceValues}</TableCell>
-        {/* <TableCell>
-          {imageUrl && (
-            <Image 
-              src={imageUrl} 
-              alt={parameter.name} 
-              width={50} 
-              height={50} 
-              style={{ objectFit: 'contain' }}
-            />
-          )}
-        </TableCell> */}
+        <TableCell align="right">
+          <ButtonTooltipWrapper
+            tooltipText="You are not allowed to delete parameters"
+            active={!canEdit}
+          >
+            <IconButton
+              color="error"
+              onClick={() => setConfirmOpen(true)}
+              disabled={!canEdit}
+              aria-label="Delete parameter"
+            >
+              <DeleteIcon />
+            </IconButton>
+          </ButtonTooltipWrapper>
+        </TableCell>
       </TableRow>
+
+      {/* Potwierdzenie usunięcia */}
+      <Dialog open={confirmOpen} onClose={() => setConfirmOpen(false)}>
+        <DialogTitle>Delete parameter</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Are you sure you want to delete parameter <strong>{parameter.name}</strong> (ID:{' '}
+            {parameter.id})? This will remove it from all cases/questions.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmOpen(false)}>Cancel</Button>
+          <Button
+            variant="contained"
+            color="error"
+            onClick={async () => {
+              await handleDelete(parameter.id);
+              setConfirmOpen(false);
+              setOpen(false);
+            }}
+          >
+            Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       {open && (
         <TableRow key={parameter?.id.toString() + 'expanded'}>
           <TableCell />

@@ -8,19 +8,24 @@ class StatsClient extends BaseClient {
     this.axiosInstance.interceptors.request.use((config) => {
       const token = sessionStorage.getItem('accessToken');
       if (token) {
+        // zostawiam tak jak miałeś – jeśli backend oczekuje "Bearer ", dopisz tu prefix
         config.headers['Authorization'] = token;
       }
       return config;
     });
   }
-  async getUserStats() {
+
+  // Rozszerzone: jeśli przekażesz userId -> pobiera staty wskazanego usera (tryb admina)
+  async getUserStats(userId?: number | string) {
     try {
-      const res = await this.axiosInstance.get('/userStats');
+      const q = userId != null ? `?userId=${encodeURIComponent(String(userId))}` : '';
+      const res = await this.axiosInstance.get(`/userStats${q}`);
       return res.data;
     } catch (err) {
       throw new Error("Couldn't get stats: " + err);
     }
   }
+
   async getQuizResults(sessionId: string) {
     try {
       const res = await this.axiosInstance.get(`/quiz/${sessionId}`);
@@ -34,8 +39,7 @@ class StatsClient extends BaseClient {
     try {
       await this.axiosInstance.post('/survey', answers);
     } catch (err) {
-      const axiosError = err as AxiosError; // Explicitly cast to AxiosError
-
+      const axiosError = err as AxiosError;
       if (axiosError.response?.status === 409) {
         throw new Error('A conflict occurred: Survey answers already exist.');
       } else {
@@ -43,14 +47,18 @@ class StatsClient extends BaseClient {
       }
     }
   }
-  async getSessionsStats() {
+
+  // Rozszerzone: opcjonalny userId
+  async getSessionsStats(userId?: number | string) {
     try {
-      const res = await this.axiosInstance.get('/sessions');
+      const q = userId != null ? `?userId=${encodeURIComponent(String(userId))}` : '';
+      const res = await this.axiosInstance.get(`/sessions${q}`);
       return res.data;
     } catch (err) {
       throw new Error("Couldn't get sessions stats: " + err);
     }
   }
+
   async deleteResponse(id: string) {
     try {
       await this.axiosInstance.delete('/responses/' + id);
@@ -58,6 +66,7 @@ class StatsClient extends BaseClient {
       throw new Error("Couldn't delete response" + err);
     }
   }
+
   async getSurveyResponse(): Promise<UserSurvey> {
     try {
       const res = await this.axiosInstance.get('/survey');
@@ -67,4 +76,5 @@ class StatsClient extends BaseClient {
     }
   }
 }
+
 export default StatsClient;

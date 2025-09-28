@@ -22,6 +22,11 @@ import {
   Grid2,
   Box,
   LinearProgress,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
 } from '@mui/material';
 import { useQuizContext } from '@/components/contexts/QuizContext';
 import { useMediaQuery } from '@mui/system';
@@ -32,6 +37,22 @@ import { IMAGES_SERVICE_URL } from '@/Envs';
 import ImagesClient from '@/Clients/ImagesClient';
 
 const QUESTION_TIMEOUT = 30;
+
+// Types for V3 reveal endpoint
+type V3Item = {
+  parameter_id?: number;
+  parameterId?: number;
+  id?: number;
+  value3: number | null;
+};
+
+type V3Response = {
+  age3: number;
+  values: V3Item[];
+};
+
+// *** lokalny typ na payload z flagą __isLast ***
+type NextQuestionWithFlag = QuestionData & { __isLast?: boolean };
 
 const QuizPage = ({
   nextStep,
@@ -56,48 +77,82 @@ const QuizPage = ({
   const theme = useTheme();
   const notLarge = useMediaQuery(theme.breakpoints.down('lg'));
   const notMedium = useMediaQuery(theme.breakpoints.down('md'));
-  const [imageSrc, setImageSrc] = React.useState<Record<string, string>>({ '1': '', '2': '' });
+  const [imageSrc, setImageSrc] = React.useState<Record<string, string>>({
+    '1': '',
+    '2': '',
+    '3': '',
+  });
   const imagesClient = React.useMemo(() => new ImagesClient(IMAGES_SERVICE_URL), []);
+  const [hasAnyAnswer, setHasAnyAnswer] = React.useState(false);
 
+  // v3 reveal
+  const showThirdCol = mode === 'educational' && showCorrect;
+  const [v3Loaded, setV3Loaded] = React.useState(false);
+
+  // report dialog state
+  const [reportOpen, setReportOpen] = React.useState(false);
+  const [reportText, setReportText] = React.useState('');
+  const [reportSending, setReportSending] = React.useState(false);
+  const [reportSubmittedForCase, setReportSubmittedForCase] = React.useState<number | null>(null);
+
+  // flaga: czy to ostatnie pytanie w teście
+  const [isLast, setIsLast] = React.useState(false);
+
+  // Finish with conditional submit
   const finishQuizSession = useCallback(async () => {
     try {
-      if (
-        mode === 'classic' ||
-        (mode === 'educational' && showCorrect === false) ||
-        mode === 'time_limited'
-      ) {
-        console.log('submitting answer on finish');
+      const shouldSubmitOnFinish =
+        growthDirection.trim() !== '' && !(mode === 'educational' && showCorrect);
+
+      if (shouldSubmitOnFinish) {
         await quizClient.submitAnswer(
           sessionId,
           growthDirection,
           window.innerWidth,
           window.innerHeight
         );
+        setHasAnyAnswer(true);
       }
       await quizClient.finishQuiz(sessionId);
       nextStep();
     } catch (error) {
       console.error(error);
     }
-  }, [quizClient, sessionId, nextStep, mode, growthDirection, showCorrect]);
+  }, [quizClient, sessionId, nextStep, mode, showCorrect, growthDirection]);
 
+  // Load next question
   const getQuestion = useCallback(async () => {
     try {
-      const data = await quizClient.getNextQuestion(sessionId);
+      const data = (await quizClient.getNextQuestion(sessionId)) as NextQuestionWithFlag | null;
       if (!data) {
-        await finishQuizSession();
+        await quizClient.finishQuiz(sessionId);
+        nextStep();
+        return;
       }
-      setQuestionData(data);
-      if (mode === 'time_limited') {
-        setTimeLeft(questionTimeout);
-      }
+
+      // ustawiamy flagę ostatniego pytania
+      setIsLast(Boolean(data.__isLast));
+
+      // wyrzucamy __isLast zanim włożymy do QuestionData
+      const { __isLast: _omit, ...questionOnly } = data;
+      void _omit;
+      setQuestionData(questionOnly as QuestionData);
+
+      setShowCorrect(false);
+      setGrowthDirection('');
+      setImageSrc({ '1': '', '2': '', '3': '' });
+      setImageNumber(0);
+      setV3Loaded(false); // reset v3 on new question
+      if (mode === 'time_limited') setTimeLeft(questionTimeout);
+      setReportSubmittedForCase(null);
+      setReportText('');
     } catch (error) {
       console.error(error);
     }
-  }, [quizClient, sessionId, mode, questionTimeout]);
+  }, [quizClient, sessionId, mode, questionTimeout, nextStep]);
 
-  const handleClickNext = async () => {
-    if (growthDirection === '' && mode !== 'educational' && mode !== 'time_limited') {
+  const handleClickNext = useCallback(async () => {
+    if (growthDirection === '' && mode !== 'educational') {
       alert('Please select a growth direction');
       return;
     }
@@ -109,15 +164,40 @@ const QuizPage = ({
           window.innerWidth,
           window.innerHeight
         );
+        setHasAnyAnswer(true);
       }
       await getQuestion();
     } catch (error) {
       console.error(error);
     }
-    setShowCorrect(false);
-    setGrowthDirection('');
-  };
+  }, [mode, growthDirection, quizClient, sessionId, getQuestion]);
 
+  // Auto-submit in time_limited
+  const handleTimeoutAutoSubmit = useCallback(async () => {
+    if (!questionData) {
+      await getQuestion();
+      return;
+    }
+    const options = questionData.options || [];
+    let answerToUse = growthDirection;
+    if (!answerToUse) {
+      if (options.length === 0) {
+        await getQuestion();
+        return;
+      }
+      const idx = Math.floor(Math.random() * options.length);
+      answerToUse = options[idx];
+    }
+    try {
+      await quizClient.submitAnswer(sessionId, answerToUse, window.innerWidth, window.innerHeight);
+      setHasAnyAnswer(true);
+    } catch (error) {
+      console.error(error);
+    }
+    await getQuestion();
+  }, [questionData, growthDirection, quizClient, sessionId, getQuestion]);
+
+  // Educational: Show Correct Answer
   const handleSubmitAnswer = async () => {
     try {
       const data = await quizClient.submitAnswer(
@@ -127,6 +207,7 @@ const QuizPage = ({
         window.innerHeight
       );
       setCorrectAnswer(data.correct);
+      if (growthDirection !== '') setHasAnyAnswer(true);
     } catch (error) {
       console.error(error);
     }
@@ -138,11 +219,12 @@ const QuizPage = ({
     setQuestionLoading(false);
   }, [getQuestion]);
 
+  // Images 1/2
   useEffect(() => {
     const fetchImage = async (path: string) => {
       try {
         const res = await axios.get(
-          IMAGES_SERVICE_URL + '/questions/' + questionData?.id.toString() + '/image/' + path,
+          '/api/images/questions/' + questionData?.id?.toString() + '/image/' + path,
           {
             responseType: 'blob',
             headers: { Authorization: 'Bearer ' + sessionStorage.getItem('accessToken') },
@@ -154,19 +236,92 @@ const QuizPage = ({
         console.error(error);
       }
     };
-    if (questionData) {
+    if (questionData?.id) {
       fetchImage('1');
       fetchImage('2');
     }
-  }, [questionData]);
+  }, [questionData?.id]);
 
+  // Image 3 (after Show Correct in educational)
+  useEffect(() => {
+    const fetchImage3 = async () => {
+      if (!questionData?.id) return;
+      try {
+        const res = await axios.get(
+          '/api/images/questions/' + questionData.id.toString() + '/image/3',
+          {
+            responseType: 'blob',
+            headers: { Authorization: 'Bearer ' + sessionStorage.getItem('accessToken') },
+          }
+        );
+        const imageUrl = URL.createObjectURL(res.data);
+        setImageSrc((prev) => ({ ...prev, '3': imageUrl }));
+      } catch (error) {
+        console.error(error);
+      }
+    };
+    if (mode === 'educational' && showCorrect && !imageSrc['3']) {
+      fetchImage3();
+    }
+  }, [mode, showCorrect, questionData?.id, imageSrc['3']]);
+
+  // V3: fetch age3 + value3 only after Show Correct (educational)
+  useEffect(() => {
+    const fetchV3 = async () => {
+      if (!questionData?.case?.id || v3Loaded) return;
+      try {
+        // GET /api/quiz/cases/:caseId/parameters/v3
+        const res = await axios.get<V3Response>(
+          `/api/quiz/cases/${questionData.case.id}/parameters/v3`,
+          { headers: { Authorization: 'Bearer ' + sessionStorage.getItem('accessToken') } }
+        );
+
+        const data = res.data;
+
+        setQuestionData((prev) => {
+          if (!prev) return prev;
+
+          const pairs: Array<[number | undefined, number | null]> = data.values.map((v) => [
+            v.parameter_id ?? v.parameterId ?? v.id,
+            v.value3 ?? null,
+          ]);
+          const v3ByParamId = new Map(pairs);
+
+          const merged = prev.case.parametersValues.map((pv, i) => {
+            const pid = prev.case.parameters[i]?.id;
+            const v3 = pid ? v3ByParamId.get(pid) : undefined;
+            return { ...pv, value3: v3 ?? pv.value3 };
+          });
+
+          return {
+            ...prev,
+            case: {
+              ...prev.case,
+              age3: data.age3 ?? prev.case.age3,
+              parametersValues: merged,
+            },
+          };
+        });
+
+        setV3Loaded(true);
+      } catch (e) {
+        console.error(e);
+      }
+    };
+
+    if (mode === 'educational' && showCorrect) {
+      fetchV3();
+    }
+  }, [mode, showCorrect, questionData?.case?.id, v3Loaded]);
+
+  // Timer in time_limited
   useEffect(() => {
     let timer: NodeJS.Timeout;
     if (mode === 'time_limited' && !showCorrect) {
       timer = setInterval(() => {
         setTimeLeft((prev) => {
           if (prev <= 1) {
-            handleClickNext();
+            handleTimeoutAutoSubmit();
             return questionTimeout;
           }
           return prev - 1;
@@ -174,14 +329,26 @@ const QuizPage = ({
       }, 1000);
     }
     return () => clearInterval(timer);
-  }, [mode, showCorrect]);
+  }, [mode, showCorrect, questionTimeout, handleTimeoutAutoSubmit]);
 
   if (questionLoading || !questionData) {
     return <Typography>Loading...</Typography>;
   }
 
   const renderImage = (path: string, alt: string) => (
-    <Box component="img" alt={alt} src={imageSrc[path]} maxWidth="100%" maxHeight="100%" />
+    <Box
+      component="img"
+      alt={alt}
+      src={imageSrc[path]}
+      sx={{
+        width: '100%',
+        height: 'auto',
+        maxHeight: 480,
+        objectFit: 'contain',
+        display: 'block',
+        mx: 'auto',
+      }}
+    />
   );
 
   const renderTimer = () => {
@@ -204,63 +371,73 @@ const QuizPage = ({
             <TableCell align="left">Age of {questionData?.case?.age1}</TableCell>
             <TableCell align="center">Parameter</TableCell>
             <TableCell align="right">Age of {questionData?.case?.age2}</TableCell>
+            {showThirdCol && <TableCell align="right">Age of {questionData?.case?.age3}</TableCell>}
           </TableRow>
         </TableHead>
         <TableBody>
-          {questionData?.case.parameters?.map((param, index) => (
-            <TableRow key={index}>
-              <TableCell align="left">
-                {questionData?.case?.parametersValues[index].value1}
-              </TableCell>
-              <TableCell component="th" scope="row" align="center">
-                {param.name}
-                <InfoTip
-                  paramId={param.id}
-                  title={param.name}
-                  description={param.description}
-                  referenceValues={param.referenceValues}
-                  imagesClient={imagesClient}
-                />
-              </TableCell>
-              <TableCell align="right">
-                {questionData.case.parametersValues[index].value2}
-              </TableCell>
-            </TableRow>
-          ))}
+          {questionData?.case.parameters?.map((param, index) => {
+            const pv = questionData?.case?.parametersValues?.[index];
+            return (
+              <TableRow key={param.id ?? index}>
+                <TableCell align="left">{pv?.value1}</TableCell>
+                <TableCell component="th" scope="row" align="center">
+                  {param.name}
+                  <InfoTip
+                    paramId={param.id}
+                    title={param.name}
+                    description={param.description}
+                    referenceValues={param.referenceValues}
+                    imagesClient={imagesClient}
+                  />
+                </TableCell>
+                <TableCell align="right">{pv?.value2}</TableCell>
+                {showThirdCol && <TableCell align="right">{pv?.value3 ?? '—'}</TableCell>}
+              </TableRow>
+            );
+          })}
         </TableBody>
       </Table>
     </TableContainer>
   );
 
+  const hasThirdImage = mode === 'educational' && showCorrect && !!imageSrc['3'];
+
   const renderContent = () => {
     if (notMedium)
       return (
         <Grid2 container spacing={2} justifyContent="space-around">
-          {imageNumber == 0 ? (
+          {imageNumber === 0 ? (
             <Grid2 size={12}>{renderImage('1', 'xray1')}</Grid2>
-          ) : (
+          ) : imageNumber === 1 ? (
             <Grid2 size={12}>{renderImage('2', 'xray2')}</Grid2>
+          ) : (
+            <Grid2 size={12}>{renderImage('3', 'xray3')}</Grid2>
           )}
           <Grid2 size={12}>
-            <Stack direction="row" justifyContent="center">
+            <Stack direction="row" justifyContent="center" spacing={1}>
               <Button
                 variant="outlined"
-                onClick={() => {
-                  setImageNumber(0);
-                }}
-                disabled={imageNumber == 0}
+                onClick={() => setImageNumber(0)}
+                disabled={imageNumber === 0}
               >
                 Image 1
               </Button>
               <Button
                 variant="outlined"
-                onClick={() => {
-                  setImageNumber(1);
-                }}
-                disabled={imageNumber == 1}
+                onClick={() => setImageNumber(1)}
+                disabled={imageNumber === 1}
               >
                 Image 2
               </Button>
+              {hasThirdImage && (
+                <Button
+                  variant="outlined"
+                  onClick={() => setImageNumber(2)}
+                  disabled={imageNumber === 2}
+                >
+                  Image 3
+                </Button>
+              )}
             </Stack>
           </Grid2>
           <Grid2 size={12} maxWidth="700px">
@@ -268,6 +445,7 @@ const QuizPage = ({
           </Grid2>
         </Grid2>
       );
+
     if (notLarge)
       return (
         <Grid2 container spacing={4} justifyContent="space-around">
@@ -276,8 +454,10 @@ const QuizPage = ({
           <Grid2 size={12} maxWidth="700px">
             {renderTable()}
           </Grid2>
+          {hasThirdImage && <Grid2 size={6}>{renderImage('3', 'xray3')}</Grid2>}
         </Grid2>
       );
+
     return (
       <Grid2 container spacing={2} alignItems="center">
         <Grid2 size={4}>{renderImage('1', 'xray1')}</Grid2>
@@ -285,8 +465,39 @@ const QuizPage = ({
           {renderTable()}
         </Grid2>
         <Grid2 size={4}>{renderImage('2', 'xray2')}</Grid2>
+        {hasThirdImage && (
+          <>
+            <Grid2 size={4} />
+            <Grid2 size={4}>{renderImage('3', 'xray3')}</Grid2>
+            <Grid2 size={4} />
+          </>
+        )}
       </Grid2>
     );
+  };
+
+  const submitReport = async () => {
+    if (!questionData?.case?.id) return;
+    const text = reportText.trim();
+    if (!text) return;
+
+    try {
+      setReportSending(true);
+      await axios.post(
+        `/api/quiz/cases/${questionData.case.id}/report`,
+        { description: text },
+        { headers: { Authorization: 'Bearer ' + sessionStorage.getItem('accessToken') } }
+      );
+      setReportSubmittedForCase(questionData.case.id);
+      setReportOpen(false);
+      setReportText('');
+      alert('Thank you! Your report has been sent.');
+    } catch (e) {
+      console.error(e);
+      alert('Failed to send the report.');
+    } finally {
+      setReportSending(false);
+    }
   };
 
   return (
@@ -309,13 +520,11 @@ const QuizPage = ({
               name="growth-direction"
               value={growthDirection}
               onChange={(e) => {
-                if (!showCorrect) {
-                  setGrowthDirection(e.target.value);
-                }
+                if (!showCorrect) setGrowthDirection(e.target.value);
               }}
             >
-              {questionData?.options?.map((option) => {
-                return showCorrect ? (
+              {questionData?.options?.map((option) =>
+                showCorrect ? (
                   <FormControlLabel
                     key={option}
                     value={option}
@@ -330,31 +539,70 @@ const QuizPage = ({
                     control={<Radio />}
                     label={option}
                   />
-                );
-              })}
+                )
+              )}
             </RadioGroup>
           </FormControl>
-          {mode !== 'educational' || showCorrect ? (
+
+          <Stack direction="row" spacing={2}>
+            {mode !== 'educational' || showCorrect ? (
+              <Button
+                onClick={handleClickNext}
+                variant="contained"
+                disabled={(mode !== 'educational' && growthDirection === '') || isLast}
+              >
+                Next
+              </Button>
+            ) : (
+              <Button onClick={handleSubmitAnswer} variant="contained">
+                Show Correct Answer
+              </Button>
+            )}
+
             <Button
-              onClick={handleClickNext}
-              variant="contained"
-              disabled={growthDirection === '' && mode != 'educational'}
+              onClick={finishQuizSession}
+              disabled={!hasAnyAnswer && growthDirection.trim() === ''}
             >
-              Next
+              Finish
             </Button>
-          ) : (
-            <Button onClick={() => handleSubmitAnswer()} variant="contained">
-              Show Correct Answer
+
+            <Button
+              variant="text"
+              onClick={() => setReportOpen(true)}
+              disabled={reportSubmittedForCase === questionData?.case?.id}
+            >
+              Report a problem
             </Button>
-          )}
-          <Button
-            onClick={finishQuizSession}
-            disabled={growthDirection === '' && mode != 'educational'}
-          >
-            Finish
-          </Button>
+          </Stack>
         </Stack>
       </CardContent>
+
+      <Dialog open={reportOpen} onClose={() => setReportOpen(false)} fullWidth maxWidth="sm">
+        <DialogTitle>Report a problem with this question</DialogTitle>
+        <DialogContent>
+          <TextField
+            multiline
+            minRows={4}
+            fullWidth
+            placeholder="Describe what is wrong (missing image, wrong parameter, typo, etc.)"
+            value={reportText}
+            onChange={(e) => setReportText(e.target.value)}
+            inputProps={{ maxLength: 4000 }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setReportOpen(false)} disabled={reportSending}>
+            Cancel
+          </Button>
+          <Button
+            onClick={submitReport}
+            variant="contained"
+            disabled={reportSending || !reportText.trim()}
+          >
+            Send
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Card>
   );
 };

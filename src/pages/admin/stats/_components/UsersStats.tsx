@@ -35,7 +35,7 @@ const groupingOptions = [
 
 const UserStats = () => {
   const [selectedGroup, setSelectedGroup] = useState('education');
-  const [view, setView] = useState('chart');
+  const [view, setView] = useState<'chart' | 'table'>('chart');
   const [data, setData] = useState<SurveyGroupedStats[]>([]);
   const [userStats, setUserStats] = useState<UserQuizStats[]>([]);
   const [surveys, setSurveys] = useState<UserSurvey[]>([]);
@@ -43,11 +43,15 @@ const UserStats = () => {
   const [error, setError] = useState<string | null>(null);
 
   const formattedData = React.useMemo(() => {
-    return data.map((item) => ({
+    const mappedData = data.map((item) => ({
       ...item,
       accuracyPercentage: Math.round(item.accuracy * 100),
     }));
-  }, [data]);
+    if (selectedGroup === 'age') {
+      return [...mappedData].sort((a, b) => Number(a.value) - Number(b.value));
+    }
+    return mappedData;
+  }, [data, selectedGroup]);
 
   const adminClient = React.useMemo(() => new AdminClient(ADMIN_SERVICE_URL), []);
 
@@ -66,12 +70,12 @@ const UserStats = () => {
         setError(null);
       } catch (err) {
         setError('Failed to fetch statistics');
+        // eslint-disable-next-line no-console
         console.error(err);
       } finally {
         setLoading(false);
       }
     };
-
     fetchData();
   }, [selectedGroup, adminClient]);
 
@@ -96,6 +100,7 @@ const UserStats = () => {
           <Typography variant="h6" gutterBottom>
             User Statistics
           </Typography>
+
           <Tabs value={view} onChange={(_, newValue) => setView(newValue)} sx={{ mb: 2 }}>
             <Tab label="Chart View" value="chart" />
             <Tab label="Table View" value="table" />

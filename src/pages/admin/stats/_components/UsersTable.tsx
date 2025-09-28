@@ -14,6 +14,7 @@ import UserDetailsModal from '@/components/ui/UserDetailsModal/UserDetailsModal'
 import { Button } from '@mui/material';
 import AdminClient from '@/Clients/AdminClient';
 import { ADMIN_SERVICE_URL } from '@/Envs';
+import Link from 'next/link';
 
 type UserStatsRow = {
   userId: number;
@@ -125,6 +126,7 @@ const UsersTable = ({ stats, surveys }: UsersTableProps) => {
                   Education
                 </TableSortLabel>
               </TableCell>
+              <TableCell>Details</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -146,6 +148,14 @@ const UsersTable = ({ stats, surveys }: UsersTableProps) => {
                 <TableCell align="right">{(row.accuracy * 100).toFixed(1)}%</TableCell>
                 <TableCell>{row.experience}</TableCell>
                 <TableCell>{row.education}</TableCell>
+                <TableCell>
+                  {/* Link do strony statystyk w trybie admina */}
+                  <Link href={`/statistics?userId=${row.userId}`} passHref legacyBehavior>
+                    <Button component="a" variant="outlined" size="small">
+                      Details
+                    </Button>
+                  </Link>
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>

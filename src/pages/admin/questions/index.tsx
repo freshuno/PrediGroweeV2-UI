@@ -6,16 +6,20 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import QuestionsTable from '@/pages/admin/questions/_components/Questions/QuestionsTable';
 import ParametersTable from '@/pages/admin/questions/_components/Parameters/ParametersTable';
 import OptionsManagement from '@/pages/admin/questions/_components/Options/OptionsManagement';
+import TestsTable from '@/pages/admin/questions/_components/Tests/TestsTable';
 
-type Tab = 'questions' | 'options' | 'cases' | 'parameters';
-const Tabs = ['questions', 'options', 'parameters'] as const;
+type Tab = 'questions' | 'options' | 'cases' | 'parameters' | 'tests';
+const Tabs = ['questions', 'tests', 'options', 'parameters'] as const;
 
 const AdminQuestionsPanel = () => {
   const [activeTab, setActiveTab] = React.useState<Tab>('questions');
+
   const renderContent = () => {
     switch (activeTab) {
       case 'questions':
         return <QuestionsTable />;
+      case 'tests':
+        return <TestsTable />;
       case 'cases':
         return <></>;
       case 'parameters':
@@ -37,23 +41,20 @@ const AdminQuestionsPanel = () => {
           </IconButton>
           Questions Management
         </Typography>
+
         <Stack direction="row" gap={2} mb={2}>
-          {Object.values(Tabs).map((tab) => {
-            return (
-              <Button
-                variant={activeTab === tab ? 'contained' : 'outlined'}
-                onClick={() => setActiveTab(tab)}
-                key={tab}
-                sx={{
-                  backgroundColor: activeTab === tab ? 'primary' : '#ffff',
-                  borderRadius: 3,
-                }}
-              >
-                <Typography>{tab}</Typography>
-              </Button>
-            );
-          })}
+          {Object.values(Tabs).map((tab) => (
+            <Button
+              key={tab}
+              variant={activeTab === tab ? 'contained' : 'outlined'}
+              onClick={() => setActiveTab(tab)}
+              sx={{ backgroundColor: activeTab === tab ? 'primary' : '#ffff', borderRadius: 3 }}
+            >
+              <Typography>{tab}</Typography>
+            </Button>
+          ))}
         </Stack>
+
         <Card>{renderContent()}</Card>
       </Box>
     </Box>

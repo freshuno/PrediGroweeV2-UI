@@ -32,12 +32,6 @@ const ParametersTable = () => {
   const [editOrder, setEditOrder] = React.useState(false);
   const role = useAuthContext().userData.role;
   const canEdit = role === 'admin';
-  // const sortParams = () => {
-  //   const sortedParams = [...parameters].sort((a, b) => {
-  //     return a?.order - b?.order || a?.id - b?.id;
-  //   });
-  //   setParameters(sortedParams);
-  // };
 
   const adminClient = React.useMemo(() => new AdminClient(ADMIN_SERVICE_URL), []);
   const imagesClient = React.useMemo(() => new ImagesClient(IMAGES_SERVICE_URL), []);
@@ -46,7 +40,6 @@ const ParametersTable = () => {
     try {
       const data = await adminClient.getAllParameters();
       setParameters(data);
-      // sortParams();
     } catch {
       setError('Failed to load parameters');
     } finally {
@@ -64,7 +57,6 @@ const ParametersTable = () => {
         await imagesClient.uploadParamImage(param.id, image);
       }
       setParameters(parameters.map((p) => (p.id === param.id ? param : p)));
-      // sortParams();
     } catch {
       setError('Failed to update parameter');
     }
@@ -74,7 +66,6 @@ const ParametersTable = () => {
     try {
       const newParameter = await adminClient.createParameter(param);
       setParameters([...parameters, newParameter]);
-      // sortParams();
       if (image && newParameter.id) {
         await imagesClient.uploadParamImage(newParameter.id, image);
       }
@@ -83,13 +74,29 @@ const ParametersTable = () => {
       setError('Failed to create parameter');
     }
   };
+
   const handleOrderChange = async (updatedParams: Parameter[]) => {
     try {
       await adminClient.updateParametersOrder(updatedParams);
       setParameters(updatedParams);
-      // sortParams();
     } catch {
       setError('Failed to update parameters order');
+    }
+  };
+
+  const handleDelete = async (id: number) => {
+    try {
+      await adminClient.deleteParameter(String(id));
+      try {
+        // Best-effort: kasowanie obrazka nie blokuje całej operacji
+        await imagesClient.deleteParamImage(id);
+      } catch (e) {
+        // naprawia "no-empty"
+        console.warn(`Couldn't delete image for param ${id}:`, e);
+      }
+      setParameters((prev) => prev.filter((p) => p.id !== id));
+    } catch {
+      setError('Failed to delete parameter');
     }
   };
 
@@ -154,11 +161,19 @@ const ParametersTable = () => {
                 <TableCell width="115px">
                   <strong>Reference value</strong>
                 </TableCell>
+                <TableCell width="100px" align="right">
+                  <strong>Actions</strong>
+                </TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {parameters.map((param) => (
-                <ParametersTableRow key={param.id} parameter={param} handleUpdate={handleUpdate} />
+                <ParametersTableRow
+                  key={param.id}
+                  parameter={param}
+                  handleUpdate={handleUpdate}
+                  handleDelete={handleDelete}
+                />
               ))}
               {showNewRow && (
                 <NewParameterRow onSave={handleCreate} onCancel={() => setShowNewRow(false)} />

@@ -102,6 +102,13 @@ export default function TopNavBar() {
               </ListItemButton>
               <ListItemButton
                 onClick={async () => {
+                  await router.push('/hallOfFame');
+                }}
+              >
+                <ListItemText primary="Hall Of Fame" />
+              </ListItemButton>
+              <ListItemButton
+                onClick={async () => {
                   await router.push('/contact');
                 }}
               >
@@ -172,6 +179,9 @@ export default function TopNavBar() {
           </Link>
           <Link href="/privacy">
             <Button color="primary">Privacy</Button>
+          </Link>
+          <Link href="/hallOfFame">
+            <Button color="primary">Hall Of Fame</Button>
           </Link>
           {isAdmin && (
             <Link href="/admin">

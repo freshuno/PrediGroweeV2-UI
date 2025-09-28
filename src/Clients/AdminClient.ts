@@ -9,6 +9,13 @@ import {
   UserSurvey,
 } from '@/types';
 
+export type UserSurveyListItem = {
+  user_id?: number;
+  userId?: number;
+  name?: string | null;
+  surname?: string | null;
+};
+
 class AdminClient extends BaseClient {
   constructor(baseUrl: string) {
     super(baseUrl);
@@ -49,6 +56,7 @@ class AdminClient extends BaseClient {
       throw new Error("Couldn't fetch questions: " + err);
     }
   }
+
   async getQuestionById(questionId: string) {
     try {
       const res = await this.axiosInstance.get(`/questions/${questionId}`);
@@ -93,12 +101,22 @@ class AdminClient extends BaseClient {
       throw new Error("Couldn't create parameter: " + err);
     }
   }
+
   async updateParametersOrder(updatedParams: Parameter[]) {
     try {
       const res = await this.axiosInstance.put('/parameters/order', updatedParams);
       return res.data;
     } catch (err) {
       throw new Error("Couldn't update parameters order: " + err);
+    }
+  }
+
+  async deleteParameter(id: string) {
+    try {
+      const res = await this.axiosInstance.delete(`/parameters/${id}`);
+      return res.data;
+    } catch (err) {
+      throw new Error("Couldn't delete parameter: " + err);
     }
   }
 
@@ -128,6 +146,7 @@ class AdminClient extends BaseClient {
       throw new Error("Couldn't create option: " + err);
     }
   }
+
   async deleteOption(id: string) {
     try {
       const res = await this.axiosInstance.delete(`/options/${id}`);
@@ -150,6 +169,7 @@ class AdminClient extends BaseClient {
       throw new Error("Couldn't delete user: " + err);
     }
   }
+
   async getAllResponses() {
     try {
       const res = await this.axiosInstance.get('/responses');
@@ -239,6 +259,27 @@ class AdminClient extends BaseClient {
       throw new Error("Couldn't fetch survey responses data" + err);
     }
   }
+
+  async getAllUsersSurveys(): Promise<UserSurveyListItem[]> {
+    const all = await this.getAllSurveyResponses();
+
+    return all.map((s) => {
+      const rec = s as unknown as Record<string, unknown>;
+
+      const uid =
+        (typeof rec['user_id'] === 'number' ? (rec['user_id'] as number) : undefined) ??
+        (typeof rec['userId'] === 'number' ? (rec['userId'] as number) : undefined);
+      const name = typeof rec['name'] === 'string' ? (rec['name'] as string) : null;
+      const surname = typeof rec['surname'] === 'string' ? (rec['surname'] as string) : null;
+      return {
+        user_id: uid,
+        userId: uid,
+        name,
+        surname,
+      };
+    });
+  }
+
   async getStatsGroupedBySurvey(groupBy: string): Promise<SurveyGroupedStats[]> {
     try {
       const res = await this.axiosInstance.get(`/stats/grouped?groupBy=${groupBy}`);
@@ -247,6 +288,7 @@ class AdminClient extends BaseClient {
       throw new Error("Couldn't fetch grouped stats: " + err);
     }
   }
+
   async deleteResponse(id: string) {
     try {
       await this.axiosInstance.delete('responses/' + id);
@@ -254,6 +296,7 @@ class AdminClient extends BaseClient {
       throw new Error("Couldn't delete response" + err);
     }
   }
+
   async getAllUsersStats() {
     try {
       const res = await this.axiosInstance.get('/stats/users');
@@ -262,6 +305,7 @@ class AdminClient extends BaseClient {
       throw new Error("Couldn't fetch users stats: " + err);
     }
   }
+
   async getSettings(): Promise<Settings[]> {
     try {
       const res = await this.axiosInstance.get('/settings');
