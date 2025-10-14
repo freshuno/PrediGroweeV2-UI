@@ -167,7 +167,6 @@ const AdminQuestionsPanel = () => {
     }
   };
 
-  // MUI theme (żeby nie używać funkcji w sx)
   const theme = useTheme();
   const errorBg = alpha(theme.palette.error.main, 0.12);
   const warningBg = alpha(theme.palette.warning.main, 0.16);
@@ -227,11 +226,9 @@ const AdminQuestionsPanel = () => {
               const votes = diff?.total_votes ?? 0;
               const pct = diff ? Math.round(diff.hard_pct) : 0;
 
-              // progi podświetlenia
               const highlight =
                 votes >= 5 ? (pct >= 60 ? 'error' : pct >= 50 ? 'warning' : 'default') : 'default';
 
-              // wygląd komórki zależny od progu — UWAGA: bez funkcji w sx
               const diffCellSx =
                 highlight === 'error'
                   ? {
