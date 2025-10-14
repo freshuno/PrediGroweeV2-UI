@@ -8,14 +8,12 @@ class StatsClient extends BaseClient {
     this.axiosInstance.interceptors.request.use((config) => {
       const token = sessionStorage.getItem('accessToken');
       if (token) {
-        // zostawiam tak jak miałeś – jeśli backend oczekuje "Bearer ", dopisz tu prefix
         config.headers['Authorization'] = token;
       }
       return config;
     });
   }
 
-  // Rozszerzone: jeśli przekażesz userId -> pobiera staty wskazanego usera (tryb admina)
   async getUserStats(userId?: number | string) {
     try {
       const q = userId != null ? `?userId=${encodeURIComponent(String(userId))}` : '';
@@ -48,7 +46,6 @@ class StatsClient extends BaseClient {
     }
   }
 
-  // Rozszerzone: opcjonalny userId
   async getSessionsStats(userId?: number | string) {
     try {
       const q = userId != null ? `?userId=${encodeURIComponent(String(userId))}` : '';
