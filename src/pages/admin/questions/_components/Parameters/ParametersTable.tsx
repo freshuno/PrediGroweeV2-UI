@@ -88,10 +88,9 @@ const ParametersTable = () => {
     try {
       await adminClient.deleteParameter(String(id));
       try {
-        // Best-effort: kasowanie obrazka nie blokuje całej operacji
         await imagesClient.deleteParamImage(id);
       } catch (e) {
-        // naprawia "no-empty"
+        // "no-empty" fix
         console.warn(`Couldn't delete image for param ${id}:`, e);
       }
       setParameters((prev) => prev.filter((p) => p.id !== id));
