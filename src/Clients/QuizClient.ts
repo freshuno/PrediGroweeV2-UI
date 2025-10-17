@@ -27,7 +27,6 @@ class QuizClient extends BaseClient {
     return res.data;
   }
 
-  // 4. parametr: testCode (opcjonalny)
   async startQuiz(mode: string, screenWidth: number, screenHeight: number, testCode?: string) {
     const body: StartQuizBody = { mode, screenWidth, screenHeight };
     if (testCode && testCode.trim() !== '') {
@@ -44,18 +43,15 @@ class QuizClient extends BaseClient {
     return res.data;
   }
 
-  // Czytamy flagę "ostatnie pytanie" z nagłówka LUB z ciała JSON (fallback).
   async getNextQuestion(sessionId: string) {
     const res = await this.axiosInstance.get(`/sessions/${sessionId}/nextQuestion`);
     if (res.status === 204) return null;
 
-    // a) nagłówek (jeśli CORS go pokaże)
     const headers = res.headers as unknown as HeaderMap;
     const raw = headers?.['x-quiz-is-last'] ?? headers?.['X-Quiz-Is-Last'];
     const value = Array.isArray(raw) ? raw[0] : raw;
     const isLastFromHeader = String(value ?? '').toLowerCase() === 'true';
 
-    // b) koperta w JSON: { question, is_last }
     const data: unknown = res.data ?? {};
     let payloadObj: Record<string, unknown> = {};
     let isLastFromBody = false;

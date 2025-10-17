@@ -15,16 +15,26 @@ import React from 'react';
 import { QuestionResult } from '@/types';
 import axios from 'axios';
 import ResultDetailsModal from '@/pages/quiz/_components/ResultDetailsModal';
+import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
+import FavoriteIcon from '@mui/icons-material/Favorite';
 
 type QuizResultGridItemProps = {
   question: QuestionResult;
   index: number;
   onReport?: () => void;
+  isFavorite?: boolean;
+  onToggleFavorite?: () => void;
 };
 
 type Difficulty = 'easy' | 'hard';
 
-const QuizResultGridItem = ({ question, index, onReport }: QuizResultGridItemProps) => {
+const QuizResultGridItem = ({
+  question,
+  index,
+  onReport,
+  isFavorite,
+  onToggleFavorite,
+}: QuizResultGridItemProps) => {
   const [imageSrc, setImageSrc] = React.useState<Record<string, string>>({
     '1': '',
     '2': '',
@@ -32,13 +42,11 @@ const QuizResultGridItem = ({ question, index, onReport }: QuizResultGridItemPro
   });
   const [openDetails, setOpenDetails] = React.useState(false);
 
-  // report dialog state (fallback)
   const [reportOpen, setReportOpen] = React.useState(false);
   const [reportText, setReportText] = React.useState('');
   const [reportSending, setReportSending] = React.useState(false);
   const [reportCaseId, setReportCaseId] = React.useState<number | null>(null);
 
-  // difficulty dialog state
   const [difficultyOpen, setDifficultyOpen] = React.useState(false);
   const [selectedDifficulty, setSelectedDifficulty] = React.useState<Difficulty | null>(null);
   const [sendingDifficulty, setSendingDifficulty] = React.useState(false);
@@ -181,7 +189,6 @@ const QuizResultGridItem = ({ question, index, onReport }: QuizResultGridItemPro
     }
   };
 
-  // Difficulty: dialog open + prefetch "my vote"
   const openDifficultyDialog = async () => {
     const qid = getQuestionId(question);
     const qnum = toNum(qid);
@@ -213,7 +220,6 @@ const QuizResultGridItem = ({ question, index, onReport }: QuizResultGridItemPro
     const qnum = toNum(qid);
     if (!qnum || !selectedDifficulty) return;
     if (myDifficulty) {
-      // UX: backend i tak zwróci 409, ale nie męczymy usera
       alert('You have already rated this question.');
       return;
     }
@@ -270,7 +276,7 @@ const QuizResultGridItem = ({ question, index, onReport }: QuizResultGridItemPro
           ))}
         </Grid2>
 
-        <Box display="flex" gap={1} mt={1}>
+        <Box display="flex" gap={1} mt={1} flexWrap="wrap">
           <Button onClick={() => setOpenDetails(true)}>Show details</Button>
           <Button
             variant="text"
@@ -287,6 +293,19 @@ const QuizResultGridItem = ({ question, index, onReport }: QuizResultGridItemPro
           <Button variant="text" onClick={() => void openDifficultyDialog()}>
             Rate difficulty
           </Button>
+
+          {/* NEW: Favorites toggle */}
+          {onToggleFavorite && (
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={isFavorite ? <FavoriteIcon color="error" /> : <FavoriteBorderIcon />}
+              onClick={onToggleFavorite}
+              sx={{ ml: 'auto' }}
+            >
+              {isFavorite ? 'Remove favorite' : 'Add to favorites'}
+            </Button>
+          )}
         </Box>
 
         <ResultDetailsModal

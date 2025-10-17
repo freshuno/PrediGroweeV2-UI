@@ -41,7 +41,6 @@ type UserProgressRow = {
   lastActivity?: string | null;
 };
 
-/* ---------- helpers: bezpieczne typowanie zamiast any ---------- */
 
 type UnknownRec = Record<string, unknown>;
 
@@ -79,13 +78,6 @@ function safeStr(s?: string | null, fallback = ''): string {
   return s;
 }
 
-/**
- * Normalizacja odpowiedzi backendu do wspólnego kształtu:
- * Obsługujemy:
- *  - prosty wariant: total_answers + correct_answers
- *  - camelCase: totalAnswers + correctAnswers
- *  - fallback: total / correct (gdyby takie klucze się pojawiły)
- */
 function normalizeUserRow(
   rec: UnknownRec,
   namesByUser: Map<number, UserSurveyName>
@@ -172,7 +164,6 @@ const UserProgressPage = () => {
     setLoading(true);
     setError(null);
     try {
-      // 1) imiona/nazwiska
       const names = await adminClient.getAllUsersSurveys();
       const namesByUser = new Map<number, UserSurveyName>();
       names.forEach((n) => {
@@ -182,7 +173,6 @@ const UserProgressPage = () => {
         if (uid) namesByUser.set(uid, n);
       });
 
-      // 2) statystyki użytkowników (agregacja po user_id)
       const statsResp: unknown = await adminClient.getAllUsersStats();
 
       // DEBUG (dev only) – podejrzyj pierwszy rekord

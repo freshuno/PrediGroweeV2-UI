@@ -35,7 +35,7 @@ const groupingOptions = [
 
 const UserStats = () => {
   const [selectedGroup, setSelectedGroup] = useState('education');
-  const [view, setView] = useState<'chart' | 'table'>('chart');
+  const [view, setView] = useState<'chart' | 'table'>('table');
   const [data, setData] = useState<SurveyGroupedStats[]>([]);
   const [userStats, setUserStats] = useState<UserQuizStats[]>([]);
   const [surveys, setSurveys] = useState<UserSurvey[]>([]);
@@ -102,10 +102,14 @@ const UserStats = () => {
           </Typography>
 
           <Tabs value={view} onChange={(_, newValue) => setView(newValue)} sx={{ mb: 2 }}>
-            <Tab label="Chart View" value="chart" />
             <Tab label="Table View" value="table" />
+            <Tab label="Chart View" value="chart" />
           </Tabs>
 
+          {/* TABLE */}
+          {view === 'table' && !loading && <UsersTable stats={userStats} surveys={surveys} />}
+
+          {/* CHART */}
           {view === 'chart' && (
             <>
               <ToggleButtonGroup
@@ -143,8 +147,6 @@ const UserStats = () => {
               </Box>
             </>
           )}
-
-          {view === 'table' && !loading && <UsersTable stats={userStats} surveys={surveys} />}
         </Box>
       </CardContent>
     </Card>

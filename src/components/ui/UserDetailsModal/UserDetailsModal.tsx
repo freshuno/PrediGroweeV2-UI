@@ -46,6 +46,10 @@ const UserDetailsModal: React.FC<{
 
   const formatAccuracy = (value: number) => `${(value * 100).toFixed(2)}%`;
 
+  const surveyFirst = (userDetails.survey?.name ?? '').trim();
+  const surveyLast = (userDetails.survey?.surname ?? '').trim();
+  const displayName = surveyFirst || surveyLast ? `${surveyFirst} ${surveyLast}`.trim() : '-';
+
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
       <DialogTitle>User Details</DialogTitle>
@@ -58,7 +62,7 @@ const UserDetailsModal: React.FC<{
             <Grid container spacing={2}>
               <Grid item xs={6}>
                 <Typography>
-                  <strong>Name:</strong> {userDetails.user.firstName} {userDetails.user.lastName}
+                  <strong>Name:</strong> {displayName}
                 </Typography>
                 <Typography>
                   <strong>Email:</strong> {userDetails.user.email}

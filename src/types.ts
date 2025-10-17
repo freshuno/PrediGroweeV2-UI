@@ -157,6 +157,28 @@ type SurveyGroupedStats = {
   correct: number;
   accuracy: number;
 };
+
+export type FavoriteCase = {
+  case_id: number;
+  case_code: string;
+  question_id?: number | null;
+  correct?: string | null;
+  gender: string;
+  age1: number;
+  age2: number;
+  age3?: number | null;
+  parameters: { id: number; name: string; description?: string; referenceValues?: string }[];
+  parametersValues: {
+    parameterId?: number;
+    value1?: number | string | null;
+    value2?: number | string | null;
+    value3?: number | string | null;
+  }[];
+  created_at: string;
+  note?: string | null;
+  note_updated_at?: string | null;
+};
+
 export type Settings = {
   name: string;
   value: string;

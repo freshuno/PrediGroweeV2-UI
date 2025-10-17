@@ -104,7 +104,6 @@ const HallOfFamePage = () => {
     setLoading(true);
     setError(null);
     try {
-      // Pobierz sporo wyników, żeby rank był sensowny nawet gdy user wypada daleko.
       const resp = await axios.get<Row[]>('/api/stats/leaderboard', {
         params: { limit: 1000, minAnswers },
       });
@@ -163,13 +162,11 @@ const HallOfFamePage = () => {
     return arr;
   }, [filtered, sortKey, sortDir]);
 
-  // Pozycja zalogowanego użytkownika w całym (posortowanym) zestawie
   const myIndex = React.useMemo(
     () => (myId ? sorted.findIndex((r) => r.user_id === myId) : -1),
     [sorted, myId]
   );
 
-  // 10 pierwszych, plus ewentualnie wiersz usera jako 11-ty
   const top10 = React.useMemo(() => sorted.slice(0, 10), [sorted]);
   const rowsToShow = React.useMemo(() => {
     if (myIndex >= 10) {
@@ -334,7 +331,6 @@ const HallOfFamePage = () => {
                       </TableRow>
                     );
                   })}
-                  {/* Jeżeli mój wiersz jest poza top10 i go dodaliśmy, możemy pokazać separator (opcjonalnie) */}
                   {myIndex >= 10 && (
                     <TableRow>
                       <TableCell colSpan={7} align="center" sx={{ opacity: 0.6, py: 1 }}>

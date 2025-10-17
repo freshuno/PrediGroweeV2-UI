@@ -44,7 +44,6 @@ const ParametersTableRow = ({ parameter, handleUpdate, handleDelete }: Parameter
         const blob = await imagesClient.getParamImage(parameter?.id);
         setImageUrl(URL.createObjectURL(blob));
       } catch (e) {
-        // naprawa "no-unused-vars": użyj wyjątku
         console.warn('Failed to load image for param', parameter?.id, e);
       }
     };

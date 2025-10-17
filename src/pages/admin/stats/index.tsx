@@ -6,20 +6,80 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ResponsesTable from './_components/ResponsesTable';
 import QuestionStatsTable from '@/pages/admin/stats/_components/QuestionStatsTable';
 import UserStats from './_components/UsersStats';
+import TestsStatsTable from './_components/TestsStatsTable';
+import { useRouter } from 'next/router';
 
-type Tab = 'recent responses' | 'questions stats' | 'users stats';
-const Tabs: Tab[] = ['recent responses', 'questions stats', 'users stats'] as const;
+type Tab = 'recent responses' | 'questions stats' | 'users stats' | 'tests progress';
+const Tabs: readonly Tab[] = [
+  'recent responses',
+  'questions stats',
+  'users stats',
+  'tests progress',
+] as const;
+
+const toSlug = (tab: Tab) => tab.toLowerCase().replace(/\s+/g, '-');
+
+const fromQueryToTab = (raw?: string | string[]): Tab | null => {
+  if (!raw) return null;
+  const v = (Array.isArray(raw) ? raw[0] : raw).toLowerCase();
+  const matchBySlug = Tabs.find((t) => toSlug(t) === v);
+  if (matchBySlug) return matchBySlug as Tab;
+  const matchByExact = Tabs.find((t) => t.toLowerCase() === v);
+  return (matchByExact as Tab) || null;
+};
 
 const AdminStatsPanel = () => {
+  const router = useRouter();
+
   const [activeTab, setActiveTab] = React.useState<Tab>('recent responses');
+
+  React.useEffect(() => {
+    if (!router.isReady) return;
+
+    const qTab = fromQueryToTab(router.query.tab);
+    if (qTab) {
+      setActiveTab(qTab);
+      return;
+    }
+
+    try {
+      const saved = localStorage.getItem('admin-stats-active-tab') as Tab | null;
+      if (saved && (Tabs as readonly Tab[]).includes(saved)) {
+        setActiveTab(saved);
+      }
+    } catch {
+      // ignore
+    }
+  }, [router.isReady, router.query.tab]);
+
+  React.useEffect(() => {
+    try {
+      localStorage.setItem('admin-stats-active-tab', activeTab);
+    } catch {
+      // ignore
+    }
+  }, [activeTab]);
+
+  const setTabAndSyncUrl = (tab: Tab) => {
+    setActiveTab(tab);
+    const tabSlug = toSlug(tab);
+    router.replace(
+      { pathname: router.pathname, query: { ...router.query, tab: tabSlug } },
+      undefined,
+      { shallow: true }
+    );
+  };
+
   const renderContent = () => {
     switch (activeTab) {
       case 'recent responses':
-        return <ResponsesTable></ResponsesTable>;
+        return <ResponsesTable />;
       case 'questions stats':
-        return <QuestionStatsTable></QuestionStatsTable>;
+        return <QuestionStatsTable />;
       case 'users stats':
-        return <UserStats></UserStats>;
+        return <UserStats />;
+      case 'tests progress':
+        return <TestsStatsTable />;
       default:
         return null;
     }
@@ -40,7 +100,7 @@ const AdminStatsPanel = () => {
             return (
               <Button
                 variant={activeTab === tab ? 'contained' : 'outlined'}
-                onClick={() => setActiveTab(tab)}
+                onClick={() => setTabAndSyncUrl(tab)}
                 key={tab}
                 sx={{
                   backgroundColor: activeTab === tab ? 'primary' : '#ffff',
@@ -57,4 +117,5 @@ const AdminStatsPanel = () => {
     </Box>
   );
 };
+
 export default AdminStatsPanel;

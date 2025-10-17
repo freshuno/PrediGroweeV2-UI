@@ -14,6 +14,12 @@ import {
   Typography,
   IconButton,
   Alert,
+  Button,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
 } from '@mui/material';
 import React from 'react';
 import axios from 'axios';
@@ -31,6 +37,10 @@ type CaseReport = {
   user_id: number;
   description: string;
   created_at: string;
+
+  admin_note?: string | null;
+  admin_note_updated_at?: string | null;
+  admin_note_updated_by?: number | null;
 };
 
 const ReportsPage = () => {
@@ -40,6 +50,11 @@ const ReportsPage = () => {
 
   const [deleteModalOpen, setDeleteModalOpen] = React.useState(false);
   const [reportToDelete, setReportToDelete] = React.useState<number | null>(null);
+
+  const [noteModalOpen, setNoteModalOpen] = React.useState(false);
+  const [noteDraft, setNoteDraft] = React.useState('');
+  const [noteTargetId, setNoteTargetId] = React.useState<number | null>(null);
+  const [noteSaving, setNoteSaving] = React.useState(false);
 
   const canEdit = useAuthContext().userData.role === 'admin';
 
@@ -68,6 +83,37 @@ const ReportsPage = () => {
     } catch (e) {
       console.error(e);
       setError('Failed to delete report');
+    }
+  };
+
+  const openEditNote = (r: CaseReport) => {
+    setNoteTargetId(r.id);
+    setNoteDraft(r.admin_note ?? '');
+    setNoteModalOpen(true);
+  };
+
+  const saveNote = async () => {
+    if (noteTargetId == null) return;
+    try {
+      setNoteSaving(true);
+      await axios.put(`/api/quiz/reports/${noteTargetId}/note`, { note: noteDraft });
+      setRows((prev) =>
+        prev.map((r) =>
+          r.id === noteTargetId
+            ? {
+                ...r,
+                admin_note: noteDraft.trim(),
+                admin_note_updated_at: new Date().toISOString(),
+              }
+            : r
+        )
+      );
+      setNoteModalOpen(false);
+    } catch (e) {
+      console.error(e);
+      setError('Failed to save note');
+    } finally {
+      setNoteSaving(false);
     }
   };
 
@@ -110,7 +156,8 @@ const ReportsPage = () => {
                     <TableCell width={200}>Case</TableCell>
                     <TableCell width={100}>User ID</TableCell>
                     <TableCell>Description</TableCell>
-                    <TableCell width={90} align="center">
+                    <TableCell width={260}>Note</TableCell>
+                    <TableCell width={120} align="center">
                       Actions
                     </TableCell>
                   </TableRow>
@@ -124,6 +171,35 @@ const ReportsPage = () => {
                       </TableCell>
                       <TableCell>{r.user_id}</TableCell>
                       <TableCell style={{ whiteSpace: 'pre-wrap' }}>{r.description}</TableCell>
+                      <TableCell sx={{ whiteSpace: 'pre-wrap' }}>
+                        <Box
+                          display="flex"
+                          alignItems="center"
+                          justifyContent="space-between"
+                          gap={1}
+                        >
+                          <Typography variant="body2" sx={{ opacity: r.admin_note ? 1 : 0.6 }}>
+                            {r.admin_note && r.admin_note.trim() !== ''
+                              ? r.admin_note
+                              : '— no note —'}
+                          </Typography>
+                          <ButtonTooltipWrapper
+                            tooltipText="Only admins can edit notes"
+                            active={!canEdit}
+                          >
+                            <span>
+                              <Button
+                                variant="text"
+                                size="small"
+                                onClick={() => openEditNote(r)}
+                                disabled={!canEdit}
+                              >
+                                {r.admin_note && r.admin_note.trim() !== '' ? 'Edit' : 'Add'}
+                              </Button>
+                            </span>
+                          </ButtonTooltipWrapper>
+                        </Box>
+                      </TableCell>
                       <TableCell align="center">
                         <ButtonTooltipWrapper
                           tooltipText="Only admins can delete"
@@ -147,7 +223,7 @@ const ReportsPage = () => {
                   ))}
                   {rows.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={5} align="center">
+                      <TableCell colSpan={6} align="center">
                         No reports
                       </TableCell>
                     </TableRow>
@@ -168,6 +244,45 @@ const ReportsPage = () => {
           }}
           onCancel={() => setDeleteModalOpen(false)}
         />
+
+        {/* Dialog: add/edit note */}
+        <Dialog
+          open={noteModalOpen}
+          onClose={() => setNoteModalOpen(false)}
+          fullWidth
+          maxWidth="sm"
+        >
+          <DialogTitle>
+            {(rows.find((r) => r.id === noteTargetId)?.admin_note ? 'Edit' : 'Add') + ' note'}
+          </DialogTitle>
+          <DialogContent>
+            <TextField
+              multiline
+              minRows={4}
+              fullWidth
+              placeholder="Internal note for admins..."
+              value={noteDraft}
+              onChange={(e) => setNoteDraft(e.target.value)}
+              inputProps={{ maxLength: 4000 }}
+            />
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setNoteModalOpen(false)} disabled={noteSaving}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                setNoteDraft('');
+              }}
+              disabled={noteSaving}
+            >
+              Clear
+            </Button>
+            <Button onClick={saveNote} variant="contained" disabled={noteSaving}>
+              Save
+            </Button>
+          </DialogActions>
+        </Dialog>
       </Box>
     </Box>
   );

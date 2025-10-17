@@ -42,7 +42,6 @@ type TestSummary = {
   questionsCount?: number;
   question_ids?: number[];
   questionIds?: number[];
-  // Uproszczone: w szczegółach trzymamy tylko ID i Group
   questions?: Array<Pick<QuestionData, 'id' | 'group'>>;
 };
 
@@ -94,7 +93,6 @@ const TestsTable: React.FC = () => {
       const list = res.data || [];
       setTests(list);
 
-      // Szybkie dogranie countów z /tests/:id dla pozycji bez licznika
       const missing = list.filter((t) => !getCount(t));
       if (missing.length > 0) {
         const results = await Promise.all(
@@ -109,7 +107,6 @@ const TestsTable: React.FC = () => {
           prev.map((t) => {
             const hit = results.find((r) => r.id === t.id);
             return hit ? { ...t, questions_count: hit.count } : t;
-            // zostawiamy też ewentualne t.questions, gdy backend je zwróci w liście
           })
         );
       }

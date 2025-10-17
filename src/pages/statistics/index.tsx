@@ -18,6 +18,12 @@ import {
   Tab,
   Tooltip,
   LinearProgress,
+  Button,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
 } from '@mui/material';
 import Grid from '@mui/material/Grid';
 import TopNavBar from '@/components/ui/TopNavBar/TopNavBar';
@@ -28,6 +34,9 @@ import { UserStats, QuizResults, QuizMode } from '@/types';
 import { KeyboardArrowDown, KeyboardArrowUp } from '@mui/icons-material';
 import QuizResultGridItem from '@/pages/quiz/_components/QuizResultGridItem';
 import { useRouter } from 'next/router';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import FavoriteIcon from '@mui/icons-material/Favorite';
+import axios from 'axios';
 
 function toPct(n: number) {
   if (!Number.isFinite(n)) return '0.0%';
@@ -139,7 +148,7 @@ const SessionRow = ({
   const deltaText = delta === null ? '—' : `${delta >= 0 ? '+' : ''}${delta.toFixed(1)} pp`;
 
   return (
-    <React.Fragment>
+    <>
       <TableRow sx={{ '& > *': { borderBottom: 'unset' } }} hover>
         <TableCell>
           <IconButton size="small" onClick={() => setOpen(!open)} aria-label="toggle-details">
@@ -179,7 +188,6 @@ const SessionRow = ({
                 Question Details
               </Typography>
 
-              {/* Responsive grid + image constraints for mobile */}
               <Grid container spacing={2}>
                 {session.questions?.map((question, index) => (
                   <Grid key={question.questionId} item xs={12} sm={6} md={4}>
@@ -209,17 +217,255 @@ const SessionRow = ({
           </Collapse>
         </TableCell>
       </TableRow>
-    </React.Fragment>
+    </>
   );
 };
 
 const MODES_ALL: Array<QuizMode | 'all'> = ['all', 'classic', 'timeLimited', 'educational'];
 
+type FavoriteCase = {
+  case_id: number;
+  case_code: string;
+  question_id?: number | null;
+  correct?: string | null;
+  gender: string;
+  age1: number;
+  age2: number;
+  age3?: number | null;
+  parameters: { id: number; name: string; description?: string; referenceValues?: string }[];
+  parametersValues: {
+    parameterId?: number;
+    value1?: number | string | null;
+    value2?: number | string | null;
+    value3?: number | string | null;
+  }[];
+  created_at: string;
+  note?: string | null;
+  note_updated_at?: string | null;
+};
+
+async function updateFavoriteNote(caseId: number, note: string | null) {
+  await axios.put(
+    `/api/quiz/cases/${caseId}/favorite/note`,
+    { note },
+    { headers: { Authorization: 'Bearer ' + sessionStorage.getItem('accessToken') } }
+  );
+}
+
+const FavoriteCaseCard: React.FC<{
+  item: FavoriteCase;
+  onRemoved: (cid: number) => void;
+  onUpdated: (updated: FavoriteCase) => void;
+  readOnly?: boolean;
+}> = ({ item, onRemoved, onUpdated, readOnly = false }) => {
+  const [img, setImg] = React.useState<Record<string, string>>({});
+  const [noteOpen, setNoteOpen] = React.useState(false);
+  const [noteDraft, setNoteDraft] = React.useState<string>(item.note ?? '');
+  const [noteSaving, setNoteSaving] = React.useState(false);
+  const qid = item.question_id;
+
+  React.useEffect(() => {
+    const fetchImg = async (path: '1' | '2' | '3') => {
+      if (!qid) return;
+      try {
+        const res = await axios.get(`/api/images/questions/${qid}/image/${path}`, {
+          responseType: 'blob',
+          headers: { Authorization: 'Bearer ' + sessionStorage.getItem('accessToken') },
+        });
+        setImg((prev) => ({ ...prev, [path]: URL.createObjectURL(res.data) }));
+      } catch {
+        // ignore
+      }
+    };
+    if (qid) {
+      fetchImg('1');
+      fetchImg('2');
+      fetchImg('3');
+    }
+  }, [qid]);
+
+  const removeFav = async () => {
+    try {
+      await axios.delete(`/api/quiz/cases/${item.case_id}/favorite`, {
+        headers: { Authorization: 'Bearer ' + sessionStorage.getItem('accessToken') },
+      });
+      onRemoved(item.case_id);
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.log(e);
+    }
+  };
+
+  const saveNote = async () => {
+    try {
+      setNoteSaving(true);
+      const trimmed = noteDraft.trim();
+      await updateFavoriteNote(item.case_id, trimmed === '' ? null : trimmed);
+      const updated: FavoriteCase = {
+        ...item,
+        note: trimmed === '' ? null : trimmed,
+        note_updated_at: trimmed === '' ? null : new Date().toISOString(),
+      };
+      onUpdated(updated);
+      setNoteOpen(false);
+    } catch (e) {
+      alert('Failed to save note.');
+      // eslint-disable-next-line no-console
+      console.error(e);
+    } finally {
+      setNoteSaving(false);
+    }
+  };
+
+  return (
+    <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 1 }}>
+      <Stack direction="row" alignItems="center" spacing={1}>
+        <FavoriteIcon color="error" fontSize="small" />
+        <Typography variant="h6">Patient {item.case_code}</Typography>
+        <Box flex={1} />
+        {!readOnly && (
+          <Button
+            size="small"
+            onClick={() => {
+              setNoteDraft(item.note ?? '');
+              setNoteOpen(true);
+            }}
+          >
+            {item.note && item.note.trim() !== '' ? 'Edit note' : 'Add note'}
+          </Button>
+        )}
+        <Button size="small" onClick={removeFav}>
+          Remove
+        </Button>
+      </Stack>
+
+      <Grid container spacing={1}>
+        {(['1', '2', '3'] as const).map((k) => (
+          <Grid key={k} item xs={12} sm={4}>
+            {img[k] ? (
+              <Box
+                component="img"
+                src={img[k]}
+                alt={`xray ${k}`}
+                sx={{
+                  width: '100%',
+                  height: 'auto',
+                  maxHeight: 220,
+                  objectFit: 'contain',
+                  display: 'block',
+                }}
+              />
+            ) : (
+              <Box
+                sx={{
+                  height: 220,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  opacity: 0.6,
+                  border: '1px dashed rgba(0,0,0,.12)',
+                  borderRadius: 1,
+                }}
+              >
+                <Typography variant="caption">No image</Typography>
+              </Box>
+            )}
+          </Grid>
+        ))}
+      </Grid>
+
+      <TableContainer component={Paper} variant="outlined">
+        <Table size="small">
+          <TableHead>
+            <TableRow>
+              <TableCell align="left">Age of {item.age1}</TableCell>
+              <TableCell align="center">Parameter</TableCell>
+              <TableCell align="right">Age of {item.age2}</TableCell>
+              {item.age3 != null && <TableCell align="right">Age of {item.age3}</TableCell>}
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {item.parameters?.map((p, i) => {
+              const pv = item.parametersValues?.[i];
+              return (
+                <TableRow key={p.id}>
+                  <TableCell align="left">{pv?.value1 ?? '—'}</TableCell>
+                  <TableCell align="center">{p.name}</TableCell>
+                  <TableCell align="right">{pv?.value2 ?? '—'}</TableCell>
+                  {item.age3 != null && <TableCell align="right">{pv?.value3 ?? '—'}</TableCell>}
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </TableContainer>
+
+      <Typography variant="body2" sx={{ mt: 1 }}>
+        Correct answer: <strong>{item.correct ?? '—'}</strong>
+      </Typography>
+
+      {item.note && item.note.trim() !== '' && (
+        <Paper variant="outlined" sx={{ p: 1.5, bgcolor: 'grey.50' }}>
+          <Typography variant="overline" sx={{ opacity: 0.7 }}>
+            My note
+          </Typography>
+          <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
+            {item.note}
+          </Typography>
+        </Paper>
+      )}
+
+      {/* Edycja notatki tylko gdy nie readOnly */}
+      {!readOnly && (
+        <Dialog open={noteOpen} onClose={() => setNoteOpen(false)} fullWidth maxWidth="sm">
+          <DialogTitle>
+            {item.note && item.note.trim() !== '' ? 'Edit note' : 'Add note'}
+          </DialogTitle>
+          <DialogContent>
+            <TextField
+              multiline
+              minRows={4}
+              fullWidth
+              placeholder="Your note about the case…"
+              value={noteDraft}
+              onChange={(e) => setNoteDraft(e.target.value)}
+              inputProps={{ maxLength: 4000 }}
+            />
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setNoteOpen(false)} disabled={noteSaving}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => setNoteDraft('')}
+              disabled={noteSaving}
+              sx={{ mr: 'auto' }}
+              color="inherit"
+            >
+              Clear
+            </Button>
+            <Button variant="contained" onClick={saveNote} disabled={noteSaving}>
+              Save
+            </Button>
+          </DialogActions>
+        </Dialog>
+      )}
+    </Paper>
+  );
+};
+
 const UserStatsPage = () => {
   const statsClient = useMemo(() => new StatsClient(STATS_SERVICE_URL), []);
   const router = useRouter();
 
-  // jeśli w URL jest ?userId=..., wymusimy pobranie danych tego usera (tryb admina)
+  const handleBack = React.useCallback(() => {
+    if (typeof window !== 'undefined' && window.history.length > 1) {
+      router.back();
+    } else {
+      router.push('/admin/stats?tab=users-stats');
+    }
+  }, [router]);
+
   const forcedUserId = React.useMemo(() => {
     const raw = router.query.userId;
     const v = Array.isArray(raw) ? raw[0] : raw;
@@ -231,6 +477,9 @@ const UserStatsPage = () => {
   const [sessionStats, setSessionStats] = React.useState<QuizResults[]>([]);
   const [modeTab, setModeTab] = React.useState<QuizMode | 'all'>('all');
 
+  const [favorites, setFavorites] = React.useState<FavoriteCase[]>([]);
+  const favoritesAnchorRef = React.useRef<HTMLDivElement | null>(null);
+
   React.useEffect(() => {
     const fetchStats = async () => {
       try {
@@ -241,11 +490,30 @@ const UserStatsPage = () => {
         setOverallStats(overall);
         setSessionStats(sessions);
       } catch (e) {
+        //
         console.log(e);
       }
     };
     fetchStats();
   }, [statsClient, forcedUserId]);
+
+  React.useEffect(() => {
+    const loadFavs = async () => {
+      try {
+        const url = forcedUserId
+          ? `/api/quiz/favorites?userId=${encodeURIComponent(forcedUserId)}`
+          : '/api/quiz/favorites';
+        const resp = await axios.get(url, {
+          headers: { Authorization: 'Bearer ' + sessionStorage.getItem('accessToken') },
+        });
+        setFavorites(resp.data || []);
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.log(e);
+      }
+    };
+    loadFavs();
+  }, [forcedUserId]);
 
   const visibleSessions = React.useMemo(() => {
     const normed = (sessionStats as AnySession[]).map((s) => ({
@@ -382,12 +650,40 @@ const UserStatsPage = () => {
           padding: 2,
         }}
       >
-        <Stack direction="row" spacing={1} alignItems="center">
-          <Typography variant="h4">
-            {isAdminView ? `User ${forcedUserId} progress` : 'Your progress'}
-          </Typography>
-          {isAdminView && (
-            <Chip size="small" label="Admin view" color="secondary" variant="outlined" />
+        <Stack direction={{ xs: 'column', md: 'row' }} spacing={1} alignItems="center">
+          <Stack direction="row" spacing={1} alignItems="center" sx={{ flex: 1 }}>
+            {isAdminView && (
+              <IconButton onClick={handleBack} sx={{ mr: 1 }} aria-label="Back to admin stats">
+                <ArrowBackIcon color="primary" />
+              </IconButton>
+            )}
+            <Typography variant="h4" sx={{ mr: 1 }}>
+              {isAdminView ? `User ${forcedUserId} progress` : 'Your progress'}
+            </Typography>
+            {isAdminView && (
+              <Chip
+                size="small"
+                label="Admin view"
+                color="secondary"
+                variant="outlined"
+                sx={{ ml: 1 }}
+              />
+            )}
+          </Stack>
+
+          {favorites.length > 0 && (
+            <Button
+              variant="contained"
+              onClick={() =>
+                favoritesAnchorRef.current?.scrollIntoView({
+                  behavior: 'smooth',
+                  block: 'start',
+                })
+              }
+              sx={{ borderRadius: 999, textTransform: 'none' }}
+            >
+              Go to favorites
+            </Button>
           )}
         </Stack>
 
@@ -469,6 +765,36 @@ const UserStatsPage = () => {
               </TableBody>
             </Table>
           </TableContainer>
+        </Card>
+
+        {/* Favorites (także w admin-view, readOnly) */}
+        <Box ref={favoritesAnchorRef} />
+        <Typography variant="h5" sx={{ mt: 4 }}>
+          Favorite cases
+        </Typography>
+        <Card>
+          <Box sx={{ p: 2 }}>
+            {favorites.length === 0 ? (
+              <Typography sx={{ opacity: 0.7 }}>No favorites yet.</Typography>
+            ) : (
+              <Grid container spacing={2}>
+                {favorites.map((f) => (
+                  <Grid key={f.case_id} item xs={12} md={6}>
+                    <FavoriteCaseCard
+                      item={f}
+                      readOnly={Boolean(isAdminView)}
+                      onRemoved={(cid) =>
+                        setFavorites((prev) => prev.filter((x) => x.case_id !== cid))
+                      }
+                      onUpdated={(u) =>
+                        setFavorites((prev) => prev.map((x) => (x.case_id === u.case_id ? u : x)))
+                      }
+                    />
+                  </Grid>
+                ))}
+              </Grid>
+            )}
+          </Box>
         </Card>
       </Stack>
     </Box>

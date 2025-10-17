@@ -13,6 +13,7 @@ import {
   Typography,
   Chip,
   Alert,
+  Button,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -37,7 +38,9 @@ const AdminUsersPanel = () => {
   const [deleteModalOpen, setDeleteModalOpen] = React.useState(false);
   const [userToDelete, setUserToDelete] = React.useState<string | null>(null);
 
-  const canEdit = useAuthContext().userData.role === 'admin';
+  const role = useAuthContext().userData.role;
+  const canApprove = role === 'admin' || role === 'teacher';
+  const canDelete = role === 'admin';
 
   const [approvedIds, setApprovedIds] = React.useState<Set<number>>(new Set());
   const [approvingIds, setApprovingIds] = React.useState<Set<number>>(new Set());
@@ -89,6 +92,41 @@ const AdminUsersPanel = () => {
       setError('Failed to load user details');
     }
   };
+  const handleUnapproveFromList = async (userId: number) => {
+    if (!canApprove) return;
+    if (!approvedIds.has(userId)) return;
+    if (approvingIds.has(userId)) return;
+
+    if (!confirm('Remove approval for this user?')) return;
+
+    setApprovedIds((prev) => {
+      const next = new Set(prev);
+      next.delete(userId);
+      return next;
+    });
+    setApprovingIds((prev) => {
+      const next = new Set(prev);
+      next.add(userId);
+      return next;
+    });
+
+    try {
+      await axios.post('/api/quiz/unapprove', { user_id: userId });
+    } catch {
+      setApprovedIds((prev) => {
+        const next = new Set(prev);
+        next.add(userId);
+        return next;
+      });
+      setError('Failed to unapprove user');
+    } finally {
+      setApprovingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(userId);
+        return next;
+      });
+    }
+  };
 
   const handleRoleUpdate = async (userId: number, newRole: UserRole) => {
     try {
@@ -115,7 +153,7 @@ const AdminUsersPanel = () => {
   };
 
   const handleApproveFromList = async (userId: number) => {
-    if (!canEdit) return;
+    if (!canApprove) return;
     if (approvedIds.has(userId)) return;
     if (approvingIds.has(userId)) return;
 
@@ -186,6 +224,7 @@ const AdminUsersPanel = () => {
                   <TableCell>Role</TableCell>
                   <TableCell>Verified</TableCell>
                   <TableCell>Created At</TableCell>
+                  <TableCell>Statistics</TableCell>
                   <TableCell>Actions</TableCell>
                 </TableRow>
               </TableHead>
@@ -197,14 +236,10 @@ const AdminUsersPanel = () => {
                   const s = surveyNames.get(user.id);
                   const firstFromSurvey = s?.name || '';
                   const lastFromSurvey = s?.surname || '';
-                  const firstFromAuth = user.firstName || '';
-                  const lastFromAuth = user.lastName || '';
 
-                  const displayFirst = firstFromSurvey || firstFromAuth;
-                  const displayLast = lastFromSurvey || lastFromAuth;
-                  const displayName =
-                    // prettier-ignore
-                    (displayFirst || displayLast ? `${displayFirst} ${displayLast}` : '').trim() || '-';
+                  const displayName = (
+                    firstFromSurvey || lastFromSurvey ? `${firstFromSurvey} ${lastFromSurvey}` : ''
+                  ).trim();
 
                   return (
                     <TableRow key={user.id}>
@@ -221,24 +256,42 @@ const AdminUsersPanel = () => {
 
                       <TableCell>
                         {isApproved ? (
-                          <Chip label="Yes" color="success" size="small" />
+                          <ButtonTooltipWrapper
+                            tooltipText="Only admins/teachers can unapprove"
+                            active={!canApprove}
+                          >
+                            <span>
+                              <Chip
+                                label={isApproving ? 'Working...' : 'Yes'}
+                                color="success"
+                                size="small"
+                                variant={canApprove ? 'outlined' : 'filled'}
+                                onClick={
+                                  canApprove && !isApproving
+                                    ? () => handleUnapproveFromList(user.id)
+                                    : undefined
+                                }
+                                clickable={canApprove && !isApproving}
+                              />
+                            </span>
+                          </ButtonTooltipWrapper>
                         ) : (
                           <ButtonTooltipWrapper
-                            tooltipText="Only admins can approve"
-                            active={!canEdit}
+                            tooltipText="Only admins/teachers can approve"
+                            active={!canApprove}
                           >
                             <span>
                               <Chip
                                 label={isApproving ? 'Approving...' : 'No'}
-                                color={canEdit ? 'warning' : 'default'}
+                                color={canApprove ? 'error' : 'default'}
                                 size="small"
-                                variant={canEdit ? 'outlined' : 'filled'}
+                                variant={canApprove ? 'outlined' : 'filled'}
                                 onClick={
-                                  canEdit && !isApproving
+                                  canApprove && !isApproving
                                     ? () => handleApproveFromList(user.id)
                                     : undefined
                                 }
-                                clickable={canEdit && !isApproving}
+                                clickable={canApprove && !isApproving}
                               />
                             </span>
                           </ButtonTooltipWrapper>
@@ -246,22 +299,31 @@ const AdminUsersPanel = () => {
                       </TableCell>
 
                       <TableCell>{new Date(user.createdAt).toLocaleDateString()}</TableCell>
+
+                      <TableCell>
+                        <Link href={`/statistics?userId=${user.id}`} passHref legacyBehavior>
+                          <Button component="a" variant="outlined" size="small">
+                            Stats
+                          </Button>
+                        </Link>
+                      </TableCell>
+
                       <TableCell>
                         <IconButton onClick={() => handleViewDetails(user.id.toString())}>
                           <InfoIcon />
                         </IconButton>
                         <ButtonTooltipWrapper
                           tooltipText="You are not allowed to delete users"
-                          active={!canEdit}
+                          active={!canDelete}
                         >
                           <IconButton
                             onClick={() => {
                               setUserToDelete(user.id.toString());
                               setDeleteModalOpen(true);
                             }}
-                            disabled={!canEdit}
+                            disabled={!canDelete}
                           >
-                            <DeleteIcon color={canEdit ? 'warning' : 'disabled'} />
+                            <DeleteIcon color={canDelete ? 'warning' : 'disabled'} />
                           </IconButton>
                         </ButtonTooltipWrapper>
                       </TableCell>

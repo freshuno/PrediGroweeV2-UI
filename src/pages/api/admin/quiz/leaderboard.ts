@@ -28,7 +28,6 @@ export default async function handler(
     )}&minAnswers=${encodeURIComponent(String(minAnswers))}`;
 
     const r = await axios.get<LeaderboardRow[]>(url, {
-      // jeśli VerifyToken bazuje na cookie, przepuść je dalej:
       headers: { Cookie: req.headers.cookie ?? '' },
     });
 
@@ -45,7 +44,6 @@ export default async function handler(
       });
     }
 
-    // Inny typ błędu
     return res.status(500).json({
       error: 'failed to load leaderboard',
       detail: String(err),

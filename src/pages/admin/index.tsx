@@ -9,6 +9,7 @@ import {
   Stack,
   Typography,
   TextField,
+  Badge,
 } from '@mui/material';
 import Link from 'next/link';
 import ActivityChart from './_components/ActivityChart';
@@ -17,6 +18,7 @@ import AdminClient from '@/Clients/AdminClient';
 import { ADMIN_SERVICE_URL } from '@/Envs';
 import { ActivityData, DashboardSummary } from '@/types';
 import axios from 'axios';
+import { useAuthContext } from '@/components/contexts/AuthContext';
 
 type SecurityMode = 'cooldown' | 'manual';
 
@@ -27,6 +29,11 @@ const AdminPage = () => {
 
   const [securityMode, setSecurityMode] = React.useState<SecurityMode>('cooldown');
   const [cooldownHours, setCooldownHours] = React.useState<number>(24);
+
+  const [reportsPending, setReportsPending] = React.useState<number>(0);
+
+  const role = useAuthContext().userData?.role ?? 'user';
+  const canManageSecurity = role === 'admin';
 
   React.useEffect(() => {
     const loadActivity = async () => {
@@ -65,12 +72,23 @@ const AdminPage = () => {
       }
     };
 
+    const loadPendingReports = async () => {
+      try {
+        const resp = await axios.get('/api/quiz/reports/pendingCount');
+        setReportsPending(Number(resp.data?.count ?? 0));
+      } catch {
+        setReportsPending(0);
+      }
+    };
+
     getSummary();
     loadActivity();
-    loadSecuritySettings();
-  }, [adminClient]);
+    if (canManageSecurity) loadSecuritySettings();
+    loadPendingReports();
+  }, [adminClient, canManageSecurity]);
 
   const saveSecurity = async () => {
+    if (!canManageSecurity) return;
     const clamped = Math.max(0, Number(cooldownHours));
     try {
       await axios.post('/api/quiz/settings', [
@@ -98,208 +116,247 @@ const AdminPage = () => {
           padding: 2,
         }}
       >
-        <Typography variant="h3">Admin Panel</Typography>
-        <Grid2 columns={12} container spacing={4} flexDirection="row" flexWrap="wrap">
-          <Grid2 size={8}>
-            <Card>
-              <CardHeader title="Recent activity" />
-              <CardContent sx={{ height: 450 }}>
-                <ActivityChart data={data} />
-              </CardContent>
-            </Card>
-          </Grid2>
+        <Typography variant="h3" sx={{ fontSize: { xs: 28, sm: 32, md: 36 } }}>
+          Admin Panel
+        </Typography>
 
-          <Grid2 size={4}>
-            <Stack direction="column" justifyContent="space-between" spacing={4} flexGrow={1}>
-              <Card sx={{ flexGrow: 1 }}>
+        <Grid2 container columns={12} spacing={4}>
+          <Grid2 size={{ xs: 12, md: 8 }}>
+            <Stack spacing={4}>
+              <Card>
+                <CardHeader title="Recent activity" />
+                <CardContent sx={{ height: { xs: 300, sm: 400, md: 450 } }}>
+                  <ActivityChart data={data} />
+                </CardContent>
+              </Card>
+
+              <Card>
                 <CardHeader title="Users" />
                 <CardContent>
-                  <Typography>
-                    Registered users: <strong>{summary?.authSummary?.users}</strong>
-                  </Typography>
-                  <Typography>
-                    Active users: <strong>-</strong>
-                  </Typography>
-                  <Typography>
-                    Last 24h registrations: <strong>{summary?.authSummary?.lastRegistered}</strong>
-                  </Typography>
+                  <Stack
+                    direction={{ xs: 'column', sm: 'row' }}
+                    spacing={2}
+                    alignItems="stretch"
+                    justifyContent="flex-start"
+                    flexWrap="wrap"
+                  >
+                    <Box sx={{ flex: '1 1 240px', minWidth: 0 }}>
+                      <Typography>
+                        Registered users: <strong>{summary?.authSummary?.users}</strong>
+                      </Typography>
+                      <Typography>
+                        Active users: <strong>-</strong>
+                      </Typography>
+                      <Typography>
+                        Last 24h registrations:{' '}
+                        <strong>{summary?.authSummary?.lastRegistered}</strong>
+                      </Typography>
+                    </Box>
 
-                  {/* Buttons in a vertical stack */}
-                  <Stack direction="column" spacing={1} sx={{ mt: 2, alignItems: 'flex-start' }}>
-                    <Button LinkComponent={Link} href="/admin/users" variant="contained">
-                      Show all users
-                    </Button>
-                    <Button LinkComponent={Link} href="/admin/surveys" variant="contained">
-                      Show surveys
-                    </Button>
-                    <Button LinkComponent={Link} href="/admin/reports" variant="contained">
-                      Show bug reports
-                    </Button>
+                    <Stack
+                      direction={{ xs: 'column', sm: 'column' }}
+                      spacing={1}
+                      sx={{ ml: { sm: 3 }, alignItems: { xs: 'stretch', sm: 'flex-start' } }}
+                    >
+                      <Button
+                        LinkComponent={Link}
+                        href="/admin/users"
+                        variant="contained"
+                        sx={{ width: { xs: '100%', sm: 'auto' } }}
+                      >
+                        Show all users
+                      </Button>
+                      <Button
+                        LinkComponent={Link}
+                        href="/admin/surveys"
+                        variant="contained"
+                        sx={{ width: { xs: '100%', sm: 'auto' } }}
+                      >
+                        Show surveys
+                      </Button>
+
+                      <Badge
+                        color="error"
+                        variant="dot"
+                        overlap="rectangular"
+                        invisible={reportsPending === 0}
+                        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+                      >
+                        <Button
+                          LinkComponent={Link}
+                          href="/admin/reports"
+                          variant="contained"
+                          sx={{ width: { xs: '100%', sm: 'auto' }, position: 'relative' }}
+                        >
+                          Show bug reports
+                        </Button>
+                      </Badge>
+                    </Stack>
                   </Stack>
                 </CardContent>
               </Card>
 
-              <Card sx={{ flexGrow: 1 }}>
+              <Card>
                 <CardHeader title="Statistics" />
                 <CardContent>
-                  <Typography>
-                    Quiz sessions: <strong>{summary?.statsSummary?.quizSessions}</strong>
-                  </Typography>
-                  <Typography>
-                    Total answers: <strong>{summary?.statsSummary?.totalResponses}</strong>
-                  </Typography>
-                  <Typography>
-                    Correct answers: <strong>{summary?.statsSummary?.totalCorrect}</strong>
-                  </Typography>
-                  <Button
-                    LinkComponent={Link}
-                    href="/admin/stats"
-                    variant="contained"
-                    sx={{ mt: 2 }}
+                  <Stack
+                    direction={{ xs: 'column', sm: 'row' }}
+                    spacing={2}
+                    alignItems="stretch"
+                    justifyContent="flex-start"
+                    flexWrap="wrap"
                   >
-                    Show statistics
-                  </Button>
-                  <Button
-                    LinkComponent={Link}
-                    href="/admin/userStats"
-                    variant="contained"
-                    sx={{ mt: 2 }}
-                  >
-                    Show User Progress
-                  </Button>
+                    <Box sx={{ flex: '1 1 240px', minWidth: 0 }}>
+                      <Typography>
+                        Quiz sessions: <strong>{summary?.statsSummary?.quizSessions}</strong>
+                      </Typography>
+                      <Typography>
+                        Total answers: <strong>{summary?.statsSummary?.totalResponses}</strong>
+                      </Typography>
+                      <Typography>
+                        Correct answers: <strong>{summary?.statsSummary?.totalCorrect}</strong>
+                      </Typography>
+                    </Box>
+
+                    <Stack
+                      direction={{ xs: 'column', sm: 'column' }}
+                      spacing={1}
+                      sx={{ ml: { sm: 3 }, alignItems: { xs: 'stretch', sm: 'flex-start' } }}
+                    >
+                      <Button
+                        LinkComponent={Link}
+                        href="/admin/stats"
+                        variant="contained"
+                        sx={{ width: { xs: '100%', sm: 'auto' } }}
+                      >
+                        Show statistics
+                      </Button>
+                      <Button
+                        LinkComponent={Link}
+                        href="/admin/liveSessions"
+                        variant="contained"
+                        sx={{ width: { xs: '100%', sm: 'auto' } }}
+                      >
+                        Show Live Sessions
+                      </Button>
+                    </Stack>
+                  </Stack>
                 </CardContent>
               </Card>
             </Stack>
           </Grid2>
 
-          <Grid2 size={6}>
-            <Card sx={{ height: 'auto' }}>
-              <CardHeader title="Questions" />
-              <CardContent>
-                <Typography>
-                  Questions in database: <strong>{summary?.quizSummary?.questions}</strong>
-                </Typography>
-                <Button
-                  LinkComponent={Link}
-                  href="/admin/questions"
-                  variant="contained"
-                  sx={{ mt: 2 }}
-                >
-                  Show all questions
-                </Button>
-              </CardContent>
-            </Card>
-          </Grid2>
-
-          <Grid2 size={6}>
-            <Card>
-              <CardHeader title="Site content" />
-              <CardContent>
-                <Typography>Manage about, contact and privacy pages</Typography>
-                <Button
-                  LinkComponent={Link}
-                  href="/admin/content"
-                  variant="contained"
-                  sx={{ mt: 2 }}
-                >
-                  Manage
-                </Button>
-              </CardContent>
-            </Card>
-          </Grid2>
-
-          <Grid2 size={6}>
-            <Card>
-              <CardHeader title="Quiz Security" />
-              <CardContent>
-                <Stack spacing={2}>
-                  {/* Current mode */}
-                  <Typography variant="body2" sx={{ opacity: 0.7 }}>
-                    Current mode:{' '}
-                    <strong>
-                      {securityMode === 'manual'
-                        ? 'Manual approval'
-                        : `Cooldown (${cooldownHours}h)`}
-                    </strong>
+          {/* Right column */}
+          <Grid2 size={{ xs: 12, md: 4 }}>
+            <Stack spacing={4}>
+              <Card>
+                <CardHeader title="Questions" />
+                <CardContent>
+                  <Typography>
+                    Questions in database: <strong>{summary?.quizSummary?.questions}</strong>
                   </Typography>
-
-                  {/* Mode selection */}
-                  <Stack direction="row" spacing={2}>
-                    <label>
-                      <input
-                        type="radio"
-                        name="qmode"
-                        value="cooldown"
-                        checked={securityMode === 'cooldown'}
-                        onChange={() => setSecurityMode('cooldown')}
-                      />{' '}
-                      Cooldown
-                    </label>
-                    <label>
-                      <input
-                        type="radio"
-                        name="qmode"
-                        value="manual"
-                        checked={securityMode === 'manual'}
-                        onChange={() => setSecurityMode('manual')}
-                      />{' '}
-                      Manual approval
-                    </label>
-                  </Stack>
-
-                  {/* Cooldown hours (min 0) */}
-                  <TextField
-                    id="cooldownHours"
-                    label="Cooldown (hours)"
-                    type="number"
-                    value={cooldownHours}
-                    onKeyDown={(e) => {
-                      if (['.', ',', 'e', 'E', '+', '-'].includes(e.key)) {
-                        e.preventDefault();
-                      }
-                    }}
-                    onPaste={(e) => {
-                      const text = e.clipboardData.getData('text');
-                      if (!/^\d+$/.test(text)) {
-                        e.preventDefault();
-                      }
-                    }}
-                    onChange={(e) => {
-                      const v = e.target.value;
-                      const n = v === '' ? 0 : Number.parseInt(v, 10);
-                      setCooldownHours(Number.isFinite(n) ? Math.max(0, n) : 0);
-                    }}
-                    inputProps={{ min: 0, step: 1, inputMode: 'numeric' }}
-                  />
-
-                  <Button variant="contained" onClick={saveSecurity}>
-                    Save security
+                  <Button
+                    LinkComponent={Link}
+                    href="/admin/questions"
+                    variant="contained"
+                    sx={{ mt: 2, width: { xs: '100%', sm: 'auto' } }}
+                  >
+                    Show all questions
                   </Button>
+                </CardContent>
+              </Card>
 
-                  <Stack direction="row" spacing={2} alignItems="center">
-                    <TextField id="approveUserId" label="User ID to approve" type="number" />
-                    <Button
-                      variant="outlined"
-                      onClick={async () => {
-                        const approveEl = document.getElementById(
-                          'approveUserId'
-                        ) as HTMLInputElement | null;
-                        const uid = Number(approveEl?.value || 0);
-                        if (!uid) return alert('Enter user id');
-                        try {
-                          await axios.post('/api/quiz/approve', { user_id: uid });
-                          alert('User approved');
-                        } catch {
-                          alert('Failed to approve');
-                        }
-                      }}
-                    >
-                      Approve user
-                    </Button>
-                  </Stack>
-                </Stack>
-              </CardContent>
-            </Card>
+              <Card>
+                <CardHeader title="Site content" />
+                <CardContent>
+                  <Typography>Manage about, contact and privacy pages</Typography>
+                  <Button
+                    LinkComponent={Link}
+                    href="/admin/content"
+                    variant="contained"
+                    sx={{ mt: 2, width: { xs: '100%', sm: 'auto' } }}
+                  >
+                    Manage
+                  </Button>
+                </CardContent>
+              </Card>
+
+              {canManageSecurity && (
+                <Card>
+                  <CardHeader title="Quiz Security" />
+                  <CardContent>
+                    <Stack spacing={2}>
+                      <Typography variant="body2" sx={{ opacity: 0.7 }}>
+                        Current mode:{' '}
+                        <strong>
+                          {securityMode === 'manual'
+                            ? 'Manual approval'
+                            : `Cooldown (${cooldownHours}h)`}
+                        </strong>
+                      </Typography>
+
+                      <Stack direction="row" spacing={2} flexWrap="wrap">
+                        <label>
+                          <input
+                            type="radio"
+                            name="qmode"
+                            value="cooldown"
+                            checked={securityMode === 'cooldown'}
+                            onChange={() => setSecurityMode('cooldown')}
+                            aria-label="Cooldown mode"
+                          />{' '}
+                          Cooldown
+                        </label>
+                        <label>
+                          <input
+                            type="radio"
+                            name="qmode"
+                            value="manual"
+                            checked={securityMode === 'manual'}
+                            onChange={() => setSecurityMode('manual')}
+                            aria-label="Manual approval mode"
+                          />{' '}
+                          Manual approval
+                        </label>
+                      </Stack>
+
+                      <TextField
+                        id="cooldownHours"
+                        label="Cooldown (hours)"
+                        type="number"
+                        value={cooldownHours}
+                        fullWidth
+                        onKeyDown={(e) => {
+                          if (['.', ',', 'e', 'E', '+', '-'].includes(e.key)) {
+                            e.preventDefault();
+                          }
+                        }}
+                        onPaste={(e) => {
+                          const text = e.clipboardData.getData('text');
+                          if (!/^\d+$/.test(text)) {
+                            e.preventDefault();
+                          }
+                        }}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          const n = v === '' ? 0 : Number.parseInt(v, 10);
+                          setCooldownHours(Number.isFinite(n) ? Math.max(0, n) : 0);
+                        }}
+                        inputProps={{ min: 0, step: 1, inputMode: 'numeric' }}
+                      />
+
+                      <Button
+                        variant="contained"
+                        onClick={saveSecurity}
+                        sx={{ width: { xs: '100%', sm: 'auto' } }}
+                      >
+                        Save security
+                      </Button>
+                    </Stack>
+                  </CardContent>
+                </Card>
+              )}
+            </Stack>
           </Grid2>
         </Grid2>
       </Stack>

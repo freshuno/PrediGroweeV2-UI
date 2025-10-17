@@ -90,14 +90,12 @@ const AdminQuestionsPanel = () => {
             total_votes: Number(row?.total_votes ?? 0),
           };
         }
-        // fallback dla ewentualnie brakujących id z odpowiedzi
         for (const id of ids) {
           if (!m[id]) m[id] = { hard_pct: 0, total_votes: 0 };
         }
         setDiffMap(m);
       })
       .catch(() => {
-        // łagodny fallback: ustaw 0/0 dla wszystkich, by nie wisiały "…"
         const m: Record<number, DiffInfo> = {};
         for (const id of ids) m[id] = { hard_pct: 0, total_votes: 0 };
         setDiffMap(m);
@@ -167,7 +165,6 @@ const AdminQuestionsPanel = () => {
     }
   };
 
-  // MUI theme (żeby nie używać funkcji w sx)
   const theme = useTheme();
   const errorBg = alpha(theme.palette.error.main, 0.12);
   const warningBg = alpha(theme.palette.warning.main, 0.16);

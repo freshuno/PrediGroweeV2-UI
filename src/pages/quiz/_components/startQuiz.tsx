@@ -10,7 +10,7 @@ import {
   FormControl,
   FormLabel,
   Alert,
-  TextField, // NEW
+  TextField,
 } from '@mui/material';
 import { Form, Formik, FormikHelpers } from 'formik';
 import AuthPagesLayout from '@/components/layouts/AuthPagesLayout';
@@ -25,17 +25,16 @@ import axios from 'axios';
 
 type QuizFormValues = {
   mode: QuizMode;
-  testCode?: string; // NEW
+  testCode?: string;
 };
 
 const initialValues: QuizFormValues = {
   mode: 'educational',
-  testCode: '', // NEW
+  testCode: '',
 };
 
 const validationSchema = Yup.object().shape({
   mode: Yup.string().oneOf(QUIZ_MODES, 'Invalid quiz mode').required('Please select a quiz mode'),
-  // testCode jest opcjonalny – brak walidacji
 });
 
 type StartQuizError = {
@@ -74,7 +73,6 @@ export default function StartQuiz({
     setSubmitting(true);
     setErrorMsg(null);
     try {
-      // NEW: przekazujemy opcjonalny testCode jako 4. argument
       const data = await quizClient.startQuiz(
         values.mode,
         window.innerWidth,
@@ -158,19 +156,16 @@ export default function StartQuiz({
                     </RadioGroup>
                   </FormControl>
 
-                  {/* NEW: pole Test code tylko dla trybu classic */}
-                  {values.mode === 'classic' && (
-                    <TextField
-                      name="testCode"
-                      label="Test code"
-                      value={values.testCode || ''}
-                      onChange={handleChange}
-                      fullWidth
-                      margin="normal"
-                      placeholder="e.g. ABC123"
-                      inputProps={{ maxLength: 24 }}
-                    />
-                  )}
+                  <TextField
+                    name="testCode"
+                    label="Test code (optional)"
+                    value={values.testCode || ''}
+                    onChange={handleChange}
+                    fullWidth
+                    margin="normal"
+                    placeholder="e.g. ABC123"
+                    inputProps={{ maxLength: 24 }}
+                  />
 
                   <LoadingButton
                     type="submit"

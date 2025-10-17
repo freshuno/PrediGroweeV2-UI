@@ -51,7 +51,7 @@ type V3Response = {
   values: V3Item[];
 };
 
-// *** lokalny typ na payload z flagą __isLast ***
+// local type with __isLast flag
 type NextQuestionWithFlag = QuestionData & { __isLast?: boolean };
 
 const QuizPage = ({
@@ -95,7 +95,7 @@ const QuizPage = ({
   const [reportSending, setReportSending] = React.useState(false);
   const [reportSubmittedForCase, setReportSubmittedForCase] = React.useState<number | null>(null);
 
-  // flaga: czy to ostatnie pytanie w teście
+  // last-question flag
   const [isLast, setIsLast] = React.useState(false);
 
   // Finish with conditional submit
@@ -130,19 +130,16 @@ const QuizPage = ({
         return;
       }
 
-      // ustawiamy flagę ostatniego pytania
       setIsLast(Boolean(data.__isLast));
-
-      // wyrzucamy __isLast zanim włożymy do QuestionData
       const { __isLast: _omit, ...questionOnly } = data;
       void _omit;
-      setQuestionData(questionOnly as QuestionData);
 
+      setQuestionData(questionOnly as QuestionData);
       setShowCorrect(false);
       setGrowthDirection('');
       setImageSrc({ '1': '', '2': '', '3': '' });
       setImageNumber(0);
-      setV3Loaded(false); // reset v3 on new question
+      setV3Loaded(false);
       if (mode === 'time_limited') setTimeLeft(questionTimeout);
       setReportSubmittedForCase(null);
       setReportText('');
@@ -197,8 +194,12 @@ const QuizPage = ({
     await getQuestion();
   }, [questionData, growthDirection, quizClient, sessionId, getQuestion]);
 
-  // Educational: Show Correct Answer
+  // Educational: Show Correct Answer (now requires selecting an option first)
   const handleSubmitAnswer = async () => {
+    if (growthDirection.trim() === '') {
+      alert('Please select an answer first');
+      return;
+    }
     try {
       const data = await quizClient.submitAnswer(
         sessionId,
@@ -270,12 +271,10 @@ const QuizPage = ({
     const fetchV3 = async () => {
       if (!questionData?.case?.id || v3Loaded) return;
       try {
-        // GET /api/quiz/cases/:caseId/parameters/v3
         const res = await axios.get<V3Response>(
           `/api/quiz/cases/${questionData.case.id}/parameters/v3`,
           { headers: { Authorization: 'Bearer ' + sessionStorage.getItem('accessToken') } }
         );
-
         const data = res.data;
 
         setQuestionData((prev) => {
@@ -554,7 +553,11 @@ const QuizPage = ({
                 Next
               </Button>
             ) : (
-              <Button onClick={handleSubmitAnswer} variant="contained">
+              <Button
+                onClick={handleSubmitAnswer}
+                variant="contained"
+                disabled={growthDirection.trim() === ''}
+              >
                 Show Correct Answer
               </Button>
             )}
