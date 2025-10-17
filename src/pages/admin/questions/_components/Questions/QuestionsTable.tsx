@@ -224,11 +224,9 @@ const AdminQuestionsPanel = () => {
               const votes = diff?.total_votes ?? 0;
               const pct = diff ? Math.round(diff.hard_pct) : 0;
 
-              // progi podświetlenia
               const highlight =
                 votes >= 5 ? (pct >= 60 ? 'error' : pct >= 50 ? 'warning' : 'default') : 'default';
 
-              // wygląd komórki zależny od progu — UWAGA: bez funkcji w sx
               const diffCellSx =
                 highlight === 'error'
                   ? {
