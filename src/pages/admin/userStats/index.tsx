@@ -41,7 +41,6 @@ type UserProgressRow = {
   lastActivity?: string | null;
 };
 
-
 type UnknownRec = Record<string, unknown>;
 
 function isNumber(v: unknown): v is number {
@@ -77,10 +76,7 @@ function safeStr(s?: string | null, fallback = ''): string {
   if (s === null || s === undefined) return fallback;
   return s;
 }
-<<<<<<< HEAD
 
-=======
->>>>>>> 380579d3999f5542803cfd3b05122050410f9b71
 function normalizeUserRow(
   rec: UnknownRec,
   namesByUser: Map<number, UserSurveyName>
@@ -178,6 +174,7 @@ const UserProgressPage = () => {
 
       const statsResp: unknown = await adminClient.getAllUsersStats();
 
+      // DEBUG (dev only) – podejrzyj pierwszy rekord
       if (process.env.NODE_ENV !== 'production') {
         try {
           const peek = Array.isArray(statsResp)

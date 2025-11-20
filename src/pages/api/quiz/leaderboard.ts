@@ -28,11 +28,13 @@ export default async function handler(
     )}&minAnswers=${encodeURIComponent(String(minAnswers))}`;
 
     const r = await axios.get<LeaderboardRow[]>(url, {
+      // jeśli VerifyToken bazuje na cookie, przepuść je dalej:
       headers: { Cookie: req.headers.cookie ?? '' },
     });
 
     return res.status(200).json(r.data);
   } catch (err: unknown) {
+    // Bez 'any': rozpoznaj, czy to AxiosError
     if (axios.isAxiosError(err)) {
       const ae = err as AxiosError;
       const status = ae.response?.status ?? 500;
@@ -43,6 +45,7 @@ export default async function handler(
       });
     }
 
+    // Inny typ błędu
     return res.status(500).json({
       error: 'failed to load leaderboard',
       detail: String(err),

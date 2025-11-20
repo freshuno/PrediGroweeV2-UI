@@ -33,6 +33,7 @@ export default async function handler(
 
     return res.status(200).json(r.data);
   } catch (err: unknown) {
+    // Bez 'any': rozpoznaj, czy to AxiosError
     if (axios.isAxiosError(err)) {
       const ae = err as AxiosError;
       const status = ae.response?.status ?? 500;

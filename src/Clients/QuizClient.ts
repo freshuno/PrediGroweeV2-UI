@@ -84,6 +84,15 @@ class QuizClient extends BaseClient {
     return res.data;
   }
 
+  async getApprovedUsers() {
+    try {
+      const res = await this.axiosInstance.get('/approved');
+      return res.data;
+    } catch (err) {
+      throw new Error("Couldn't get approved users: " + err);
+    }
+  }
+
   async getAllParameters() {
     const res = await this.axiosInstance.get('/parameters');
     return res.data;

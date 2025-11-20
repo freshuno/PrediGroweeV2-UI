@@ -22,25 +22,26 @@ import {
   TextField,
 } from '@mui/material';
 import React from 'react';
-import axios from 'axios';
 import Link from 'next/link';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { useAuthContext } from '@/components/contexts/AuthContext';
 import ConfirmationModal from '@/components/ui/ConfirmationModal';
 import ButtonTooltipWrapper from '@/components/ui/ButtonTooltipWrapper';
+import AdminClient from '@/Clients/AdminClient';
+import { ADMIN_SERVICE_URL } from '@/Envs';
 
 type CaseReport = {
   id: number;
-  case_id: number;
-  case_code: string;
-  user_id: number;
+  caseId: number;
+  caseCode: string;
+  userId: number;
   description: string;
-  created_at: string;
+  createdAt: string;
 
-  admin_note?: string | null;
-  admin_note_updated_at?: string | null;
-  admin_note_updated_by?: number | null;
+  adminNote?: string | null;
+  adminNoteUpdatedAt?: string | null;
+  adminNoteUpdatedBy?: number | null;
 };
 
 const ReportsPage = () => {
@@ -57,20 +58,21 @@ const ReportsPage = () => {
   const [noteSaving, setNoteSaving] = React.useState(false);
 
   const canEdit = useAuthContext().userData.role === 'admin';
+  const adminClient = React.useMemo(() => new AdminClient(ADMIN_SERVICE_URL), []);
 
   const load = React.useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const resp = await axios.get<CaseReport[]>('/api/quiz/reports');
-      setRows(resp.data);
+      const resp = await adminClient.getReports();
+      setRows(resp);
     } catch (e) {
       console.error(e);
       setError('Failed to load reports');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [adminClient]);
 
   React.useEffect(() => {
     load();
@@ -78,7 +80,7 @@ const ReportsPage = () => {
 
   const deleteReport = async (id: number) => {
     try {
-      await axios.delete(`/api/quiz/reports/${id}`);
+      await adminClient.deleteReport(id);
       setRows((prev) => prev.filter((r) => r.id !== id));
     } catch (e) {
       console.error(e);
@@ -88,7 +90,7 @@ const ReportsPage = () => {
 
   const openEditNote = (r: CaseReport) => {
     setNoteTargetId(r.id);
-    setNoteDraft(r.admin_note ?? '');
+    setNoteDraft(r.adminNote ?? '');
     setNoteModalOpen(true);
   };
 
@@ -96,14 +98,14 @@ const ReportsPage = () => {
     if (noteTargetId == null) return;
     try {
       setNoteSaving(true);
-      await axios.put(`/api/quiz/reports/${noteTargetId}/note`, { note: noteDraft });
+      await adminClient.setReportNote(noteTargetId, noteDraft);
       setRows((prev) =>
         prev.map((r) =>
           r.id === noteTargetId
             ? {
                 ...r,
-                admin_note: noteDraft.trim(),
-                admin_note_updated_at: new Date().toISOString(),
+                adminNote: noteDraft.trim(),
+                adminNoteUpdatedAt: new Date().toISOString(),
               }
             : r
         )
@@ -165,11 +167,11 @@ const ReportsPage = () => {
                 <TableBody>
                   {rows.map((r) => (
                     <TableRow key={r.id}>
-                      <TableCell>{new Date(r.created_at).toLocaleString()}</TableCell>
+                      <TableCell>{new Date(r.createdAt).toLocaleString()}</TableCell>
                       <TableCell>
-                        {r.case_code} (#{r.case_id})
+                        {r.caseCode} (#{r.caseId})
                       </TableCell>
-                      <TableCell>{r.user_id}</TableCell>
+                      <TableCell>{r.userId}</TableCell>
                       <TableCell style={{ whiteSpace: 'pre-wrap' }}>{r.description}</TableCell>
                       <TableCell sx={{ whiteSpace: 'pre-wrap' }}>
                         <Box
@@ -178,10 +180,8 @@ const ReportsPage = () => {
                           justifyContent="space-between"
                           gap={1}
                         >
-                          <Typography variant="body2" sx={{ opacity: r.admin_note ? 1 : 0.6 }}>
-                            {r.admin_note && r.admin_note.trim() !== ''
-                              ? r.admin_note
-                              : '— no note —'}
+                          <Typography variant="body2" sx={{ opacity: r.adminNote ? 1 : 0.6 }}>
+                            {r.adminNote && r.adminNote.trim() !== '' ? r.adminNote : '— no note —'}
                           </Typography>
                           <ButtonTooltipWrapper
                             tooltipText="Only admins can edit notes"
@@ -194,7 +194,7 @@ const ReportsPage = () => {
                                 onClick={() => openEditNote(r)}
                                 disabled={!canEdit}
                               >
-                                {r.admin_note && r.admin_note.trim() !== '' ? 'Edit' : 'Add'}
+                                {r.adminNote && r.adminNote.trim() !== '' ? 'Edit' : 'Add'}
                               </Button>
                             </span>
                           </ButtonTooltipWrapper>
@@ -253,7 +253,7 @@ const ReportsPage = () => {
           maxWidth="sm"
         >
           <DialogTitle>
-            {(rows.find((r) => r.id === noteTargetId)?.admin_note ? 'Edit' : 'Add') + ' note'}
+            {(rows.find((r) => r.id === noteTargetId)?.adminNote ? 'Edit' : 'Add') + ' note'}
           </DialogTitle>
           <DialogContent>
             <TextField

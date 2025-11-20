@@ -17,7 +17,6 @@ import React from 'react';
 import AdminClient from '@/Clients/AdminClient';
 import { ADMIN_SERVICE_URL } from '@/Envs';
 import { ActivityData, DashboardSummary } from '@/types';
-import axios from 'axios';
 import { useAuthContext } from '@/components/contexts/AuthContext';
 
 type SecurityMode = 'cooldown' | 'manual';
@@ -56,26 +55,39 @@ const AdminPage = () => {
 
     const loadSecuritySettings = async () => {
       try {
-        const resp = await axios.get('/api/quiz/settings');
-        const settings = resp.data as Array<{ Name: string; Value: string }>;
+        const res = await adminClient.getSettings();
 
-        const mode =
-          (settings.find((s) => s.Name === 'quiz_security_mode')?.Value as SecurityMode) ||
-          'cooldown';
-        const hoursRaw = settings.find((s) => s.Name === 'quiz_cooldown_hours')?.Value ?? '24';
-        const hours = Number.parseInt(hoursRaw, 10);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const raw = (res as any)?.data ?? res;
 
-        setSecurityMode(mode === 'manual' ? 'manual' : 'cooldown');
-        setCooldownHours(Number.isFinite(hours) && hours >= 0 ? hours : 24);
-      } catch {
-        console.log('Failed to load quiz settings');
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const settingsArr: Array<any> = Array.isArray(raw) ? raw : [];
+
+        const getVal = (key: string): string => {
+          const item =
+            settingsArr.find((s) => (s.Name ?? s.name)?.toString().trim() === key) ?? null;
+          return (item?.Value ?? item?.value ?? '').toString().trim();
+        };
+
+        const modeStr = getVal('quiz_security_mode').toLowerCase();
+        const parsedMode: SecurityMode = modeStr === 'manual' ? 'manual' : 'cooldown';
+
+        const hoursStr = getVal('quiz_cooldown_hours');
+        const hoursNum = Number.parseInt(hoursStr, 10);
+        const parsedHours = Number.isFinite(hoursNum) && hoursNum >= 0 ? hoursNum : 24;
+
+        setSecurityMode(parsedMode);
+        setCooldownHours(parsedHours);
+      } catch (e) {
+        console.log('Failed to load quiz settings', e);
       }
     };
 
     const loadPendingReports = async () => {
       try {
-        const resp = await axios.get('/api/quiz/reports/pendingCount');
-        setReportsPending(Number(resp.data?.count ?? 0));
+        const resp = await adminClient.getPendingReportsCount();
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        setReportsPending(Number((resp as any)?.count ?? 0));
       } catch {
         setReportsPending(0);
       }
@@ -91,9 +103,9 @@ const AdminPage = () => {
     if (!canManageSecurity) return;
     const clamped = Math.max(0, Number(cooldownHours));
     try {
-      await axios.post('/api/quiz/settings', [
-        { Name: 'quiz_security_mode', Value: securityMode },
-        { Name: 'quiz_cooldown_hours', Value: String(clamped) },
+      await adminClient.updateSettings([
+        { name: 'quiz_security_mode', value: securityMode },
+        { name: 'quiz_cooldown_hours', value: String(clamped) },
       ]);
       setCooldownHours(clamped);
       alert('Security settings saved');

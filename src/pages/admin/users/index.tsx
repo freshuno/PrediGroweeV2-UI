@@ -20,7 +20,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import InfoIcon from '@mui/icons-material/Info';
 
 import AdminClient, { UserSurveyListItem } from '@/Clients/AdminClient';
-import { ADMIN_SERVICE_URL } from '@/Envs';
+import { ADMIN_SERVICE_URL, QUIZ_SERVICE_URL } from '@/Envs';
 import { UserData, UserDetails, UserRole } from '@/types';
 import TopNavBar from '@/components/ui/TopNavBar/TopNavBar';
 import UserDetailsModal from '@/components/ui/UserDetailsModal/UserDetailsModal';
@@ -28,7 +28,7 @@ import Link from 'next/link';
 import ConfirmationModal from '@/components/ui/ConfirmationModal';
 import ButtonTooltipWrapper from '@/components/ui/ButtonTooltipWrapper';
 import { useAuthContext } from '@/components/contexts/AuthContext';
-import axios from 'axios';
+import QuizClient from '@/Clients/QuizClient';
 
 const AdminUsersPanel = () => {
   const [users, setUsers] = React.useState<UserData[]>([]);
@@ -50,20 +50,48 @@ const AdminUsersPanel = () => {
   >(new Map());
 
   const adminClient = React.useMemo(() => new AdminClient(ADMIN_SERVICE_URL), []);
+  const quizClient = React.useMemo(() => new QuizClient(QUIZ_SERVICE_URL), []);
 
   React.useEffect(() => {
     const load = async () => {
       try {
         const [usersData, approvedRes, surveys] = await Promise.all([
           adminClient.getAllUsers(),
-          axios.get('/api/quiz/approved'),
+          quizClient.getApprovedUsers(),
           adminClient.getAllUsersSurveys(),
         ]);
 
         setUsers(usersData);
 
-        const ids: number[] = approvedRes.data?.approved_user_ids || [];
+        // --- Parsowanie odpowiedzi z getApprovedUsers (obsługa camelCase i snake_case) ---
+        let ids: number[] = [];
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const raw = (approvedRes as any)?.data ?? approvedRes;
+
+        if (Array.isArray(raw)) {
+          // gdy endpoint zwróci po prostu tablicę ID
+          ids = raw.map((x) => Number(x)).filter((n) => !Number.isNaN(n));
+        } else if (raw && typeof raw === 'object') {
+          // spróbuj znaleźć tablicę ID pod różnymi kluczami
+          const maybeIds =
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (raw as any).approved_user_ids ??
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (raw as any).approvedUserIds ??
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (raw as any).approvedIds ??
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (raw as any).ids;
+
+          if (Array.isArray(maybeIds)) {
+            ids = maybeIds
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              .map((x: any) => Number(x))
+              .filter((n: number) => !Number.isNaN(n));
+          }
+        }
         setApprovedIds(new Set(ids));
+        // --- koniec parsowania ---
 
         const m = new Map<number, { name: string; surname: string }>();
         (surveys as UserSurveyListItem[]).forEach((s) => {
@@ -75,6 +103,7 @@ const AdminUsersPanel = () => {
           }
         });
         setSurveyNames(m);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } catch {
         setError('Failed to load users, approvals or surveys');
       } finally {
@@ -82,7 +111,7 @@ const AdminUsersPanel = () => {
       }
     };
     load();
-  }, [adminClient]);
+  }, [adminClient, quizClient]);
 
   const handleViewDetails = async (userId: string) => {
     try {
@@ -111,7 +140,7 @@ const AdminUsersPanel = () => {
     });
 
     try {
-      await axios.post('/api/quiz/unapprove', { user_id: userId });
+      await adminClient.unapproveUser(userId);
     } catch {
       setApprovedIds((prev) => {
         const next = new Set(prev);
@@ -169,7 +198,7 @@ const AdminUsersPanel = () => {
     });
 
     try {
-      await axios.post('/api/quiz/approve', { user_id: userId });
+      await adminClient.approveUser(userId);
     } catch {
       setApprovedIds((prev) => {
         const next = new Set(prev);

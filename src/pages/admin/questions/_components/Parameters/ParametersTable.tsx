@@ -90,10 +90,6 @@ const ParametersTable = () => {
       try {
         await imagesClient.deleteParamImage(id);
       } catch (e) {
-<<<<<<< HEAD
-=======
-        // "no-empty" fix
->>>>>>> 380579d3999f5542803cfd3b05122050410f9b71
         console.warn(`Couldn't delete image for param ${id}:`, e);
       }
       setParameters((prev) => prev.filter((p) => p.id !== id));

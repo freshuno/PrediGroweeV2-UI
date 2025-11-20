@@ -280,6 +280,14 @@ class AdminClient extends BaseClient {
     });
   }
 
+  async approveUser(userId: number) {
+    await this.axiosInstance.post('/quiz/approve', { user_id: userId });
+  }
+
+  async unapproveUser(userId: number) {
+    await this.axiosInstance.post('/quiz/unapprove', { user_id: userId });
+  }
+
   async getStatsGroupedBySurvey(groupBy: string): Promise<SurveyGroupedStats[]> {
     try {
       const res = await this.axiosInstance.get(`/stats/grouped?groupBy=${groupBy}`);
@@ -308,7 +316,7 @@ class AdminClient extends BaseClient {
 
   async getSettings(): Promise<Settings[]> {
     try {
-      const res = await this.axiosInstance.get('/settings');
+      const res = await this.axiosInstance.get('/quiz/settings');
       return res.data;
     } catch (err) {
       throw new Error("Couldn't fetch settings: " + err);
@@ -317,10 +325,29 @@ class AdminClient extends BaseClient {
 
   async updateSettings(settings: Settings[]): Promise<void> {
     try {
-      await this.axiosInstance.patch('/settings', settings);
+      await this.axiosInstance.post('/quiz/settings', settings);
     } catch (err) {
       throw new Error("Couldn't update settings: " + err);
     }
+  }
+
+  async getPendingReportsCount() {
+    const res = await this.axiosInstance.get('/quiz/reports/pendingCount');
+    return res.data;
+  }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  async getReports(): Promise<any[]> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const res = await this.axiosInstance.get('/quiz/reports');
+    return res.data;
+  }
+
+  async deleteReport(id: number | string): Promise<void> {
+    await this.axiosInstance.delete(`/quiz/reports/${id}`);
+  }
+
+  async setReportNote(id: number | string, note: string): Promise<void> {
+    await this.axiosInstance.put(`/quiz/reports/${id}/note`, { note });
   }
 }
 
