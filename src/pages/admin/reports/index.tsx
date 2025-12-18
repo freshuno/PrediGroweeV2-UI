@@ -31,6 +31,12 @@ import ButtonTooltipWrapper from '@/components/ui/ButtonTooltipWrapper';
 import AdminClient from '@/Clients/AdminClient';
 import { ADMIN_SERVICE_URL } from '@/Envs';
 
+// --- DODANO IMPORTY ---
+import { QuestionData, UserDetails } from '@/types';
+import { QuestionDetailsModal } from '@/components/ui/QuestionDetailsModal/QuestionDetailsModal';
+import UserDetailsModal from '@/components/ui/UserDetailsModal/UserDetailsModal';
+// ----------------------
+
 type CaseReport = {
   id: number;
   caseId: number;
@@ -56,6 +62,9 @@ const ReportsPage = () => {
   const [noteDraft, setNoteDraft] = React.useState('');
   const [noteTargetId, setNoteTargetId] = React.useState<number | null>(null);
   const [noteSaving, setNoteSaving] = React.useState(false);
+
+  const [selectedQuestion, setSelectedQuestion] = React.useState<QuestionData | null>(null);
+  const [selectedUserDetails, setSelectedUserDetails] = React.useState<UserDetails | null>(null);
 
   const canEdit = useAuthContext().userData.role === 'admin';
   const adminClient = React.useMemo(() => new AdminClient(ADMIN_SERVICE_URL), []);
@@ -169,9 +178,28 @@ const ReportsPage = () => {
                     <TableRow key={r.id}>
                       <TableCell>{new Date(r.createdAt).toLocaleString()}</TableCell>
                       <TableCell>
-                        {r.caseCode} (#{r.caseId})
+                        <Button
+                          onClick={async () => {
+                            const q = await adminClient.getQuestionById((r.caseId - 1).toString());
+                            setSelectedQuestion(q);
+                          }}
+                          sx={{ textTransform: 'none', justifyContent: 'flex-start' }}
+                        >
+                          {r.caseCode} (#{r.caseId - 1})
+                        </Button>
+                        {/* ------------------------------- */}
                       </TableCell>
-                      <TableCell>{r.userId}</TableCell>
+                      <TableCell>
+                        <Button
+                          onClick={async () => {
+                            const u = await adminClient.getUserDetails(r.userId.toString());
+                            setSelectedUserDetails(u);
+                          }}
+                        >
+                          {r.userId}
+                        </Button>
+                        {/* ------------------------------- */}
+                      </TableCell>
                       <TableCell style={{ whiteSpace: 'pre-wrap' }}>{r.description}</TableCell>
                       <TableCell sx={{ whiteSpace: 'pre-wrap' }}>
                         <Box
@@ -283,6 +311,29 @@ const ReportsPage = () => {
             </Button>
           </DialogActions>
         </Dialog>
+
+        <QuestionDetailsModal
+          open={!!selectedQuestion}
+          onClose={() => setSelectedQuestion(null)}
+          question={selectedQuestion}
+          fetchStats={async () => {
+            return adminClient.getQuestionStats(selectedQuestion?.id || 0);
+          }}
+          editable={false}
+        />
+        <UserDetailsModal
+          open={!!selectedUserDetails}
+          onClose={() => setSelectedUserDetails(null)}
+          userDetails={selectedUserDetails}
+          onRoleChange={async (id, role) => {
+            try {
+              await adminClient.updateUser(id.toString(), { role: role });
+            } catch {
+              setError('Failed to update user role');
+            }
+          }}
+        />
+        {/* -------------------------------- */}
       </Box>
     </Box>
   );

@@ -12,6 +12,8 @@ import {
   RadioGroup,
   FormControlLabel,
   Radio,
+  Checkbox,
+  Link,
 } from '@mui/material';
 import { STATS_SERVICE_URL } from '@/Envs';
 import StatsClient from '@/Clients/StatsClient';
@@ -285,6 +287,7 @@ const SurveyPage = () => {
     experience: '',
     acknowledgements: true,
   });
+  const [rodoAccepted, setRodoAccepted] = useState(false);
   const [isError, setIsError] = useState(false);
   const [touchedFields, setTouchedFields] = useState<Record<string, boolean>>({});
 
@@ -336,7 +339,8 @@ const SurveyPage = () => {
     !formData.visionDefect ||
     !formData.education ||
     !formData.experience ||
-    typeof formData.acknowledgements !== 'boolean';
+    typeof formData.acknowledgements !== 'boolean' ||
+    !rodoAccepted;
 
   const handleSubmit = async (e: { preventDefault: () => void }) => {
     e.preventDefault();
@@ -533,6 +537,31 @@ const SurveyPage = () => {
                 <FormControlLabel value="Yes" control={<Radio />} label="Yes" />
                 <FormControlLabel value="No" control={<Radio />} label="No" />
               </RadioGroup>
+            </FormControl>
+
+            <FormControl component="fieldset" margin="normal" required>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={rodoAccepted}
+                    onChange={(e) => setRodoAccepted(e.target.checked)}
+                    name="rodo"
+                    color="primary"
+                  />
+                }
+                label={
+                  <span>
+                    I have read and accept the{' '}
+                    <Link
+                      href="https://predigrowee.agh.edu.pl/privacy"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      Privacy Policy (GDPR)
+                    </Link>
+                  </span>
+                }
+              />
             </FormControl>
 
             <Box textAlign="center" mt={2}>

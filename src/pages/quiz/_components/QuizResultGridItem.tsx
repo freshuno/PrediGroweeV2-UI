@@ -52,6 +52,8 @@ const QuizResultGridItem = ({
   const [sendingDifficulty, setSendingDifficulty] = React.useState(false);
   const [myDifficulty, setMyDifficulty] = React.useState<Difficulty | null>(null);
 
+  const [caseCode, setCaseCode] = React.useState<string | null>(null);
+
   const reportInputRef = React.useRef<HTMLInputElement | HTMLTextAreaElement>(null);
   React.useEffect(() => {
     if (reportOpen) {
@@ -134,6 +136,26 @@ const QuizResultGridItem = ({
     fetchImage('1');
     fetchImage('2');
     fetchImage('3');
+  }, [question]);
+
+  React.useEffect(() => {
+    const qid = getQuestionId(question);
+    if (qid == null) return;
+
+    const fetchCaseCode = async () => {
+      try {
+        const res = await axios.get(`/api/quiz/q/${qid}`, {
+          headers: { Authorization: 'Bearer ' + sessionStorage.getItem('accessToken') },
+        });
+        if (res.data?.case?.code) {
+          setCaseCode(res.data.case.code);
+        }
+      } catch (error) {
+        console.error(error);
+      }
+    };
+
+    fetchCaseCode();
   }, [question]);
 
   const fetchCaseIdByQuestionId = async (qid: number | string): Promise<number | null> => {
@@ -263,7 +285,9 @@ const QuizResultGridItem = ({
       >
         <Box display="flex" justifyContent="space-between" alignItems="center">
           <Box display="flex" alignItems="center" gap={2}>
-            <Typography color="text.secondary">Question {index + 1}</Typography>
+            <Typography color="text.secondary">
+              Question {index + 1} {caseCode && `(Case ${caseCode})`}
+            </Typography>
             <Typography fontWeight="medium">Your answer: {question?.answer ?? ''}</Typography>
           </Box>
         </Box>
@@ -294,7 +318,7 @@ const QuizResultGridItem = ({
             Rate difficulty
           </Button>
 
-          {/* NEW: Favorites toggle */}
+          {/*Favorites toggle */}
           {onToggleFavorite && (
             <Button
               variant="outlined"

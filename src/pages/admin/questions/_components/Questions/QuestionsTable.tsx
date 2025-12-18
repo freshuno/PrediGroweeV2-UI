@@ -21,6 +21,7 @@ import {
   DialogActions,
   TextField,
   Snackbar,
+  TableSortLabel,
 } from '@mui/material';
 import { alpha, useTheme } from '@mui/material/styles';
 import InfoIcon from '@mui/icons-material/Info';
@@ -31,6 +32,7 @@ import { ADMIN_SERVICE_URL, QUIZ_SERVICE_URL } from '@/Envs';
 import axios from 'axios';
 
 type DiffInfo = { hard_pct: number; total_votes: number };
+type Order = 'asc' | 'desc';
 
 const AdminQuestionsPanel = () => {
   const [questions, setQuestions] = React.useState<QuestionData[]>([]);
@@ -38,7 +40,6 @@ const AdminQuestionsPanel = () => {
   const [isLoading, setIsLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
 
-  // selection + dialog state
   const [selected, setSelected] = React.useState<number[]>([]);
   const [createOpen, setCreateOpen] = React.useState(false);
   const [testName, setTestName] = React.useState('');
@@ -50,8 +51,11 @@ const AdminQuestionsPanel = () => {
     severity: 'success' | 'error';
   }>({ open: false, msg: '', severity: 'success' });
 
-  // difficulty map per question id
   const [diffMap, setDiffMap] = React.useState<Record<number, DiffInfo>>({});
+
+  const [order, setOrder] = React.useState<Order>('asc');
+  const [orderBy, setOrderBy] = React.useState<string>('id');
+  const [searchTerm, setSearchTerm] = React.useState('');
 
   const adminClient = React.useMemo(() => new AdminClient(ADMIN_SERVICE_URL), []);
 
@@ -69,7 +73,6 @@ const AdminQuestionsPanel = () => {
     loadQuestions();
   }, [adminClient]);
 
-  // fetch difficulty summaries for all questions (BATCH)
   React.useEffect(() => {
     if (!questions.length) return;
 
@@ -102,17 +105,73 @@ const AdminQuestionsPanel = () => {
       });
   }, [questions]);
 
+  const handleRequestSort = (property: string) => {
+    const isAsc = orderBy === property && order === 'asc';
+    setOrder(isAsc ? 'desc' : 'asc');
+    setOrderBy(property);
+  };
+
+  const visibleQuestions = React.useMemo(() => {
+    let filtered = questions;
+    if (searchTerm.trim()) {
+      const lowerTerm = searchTerm.toLowerCase();
+      filtered = questions.filter((q) => {
+        const matchCode = q.case.code.toLowerCase().includes(lowerTerm);
+        const matchId = q.id.toString().includes(lowerTerm);
+        const matchGender = q.case.gender.toLowerCase().includes(lowerTerm);
+        const matchCorrect = q.correct.toLowerCase().includes(lowerTerm);
+
+        return matchCode || matchId || matchGender || matchCorrect;
+      });
+    }
+
+    return filtered.sort((a, b) => {
+      let valueA: number | string = '';
+      let valueB: number | string = '';
+
+      switch (orderBy) {
+        case 'id':
+          valueA = a.id;
+          valueB = b.id;
+          break;
+        case 'group':
+          valueA = a.group || '';
+          valueB = b.group || '';
+          break;
+        case 'difficulty':
+          valueA = diffMap[a.id]?.hard_pct || 0;
+          valueB = diffMap[b.id]?.hard_pct || 0;
+          break;
+        default:
+          return 0;
+      }
+
+      if (valueB < valueA) {
+        return order === 'asc' ? 1 : -1;
+      }
+      if (valueB > valueA) {
+        return order === 'asc' ? -1 : 1;
+      }
+      return 0;
+    });
+  }, [questions, diffMap, searchTerm, order, orderBy]);
+
   const toggle = (id: number) => {
     setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   };
 
-  const allIds = React.useMemo(() => questions.map((q) => q.id), [questions]);
-  const allSelected = selected.length > 0 && selected.length === questions.length;
-  const someSelected = selected.length > 0 && selected.length < questions.length;
+  const allIds = React.useMemo(() => visibleQuestions.map((q) => q.id), [visibleQuestions]);
+
+  const allSelected = allIds.length > 0 && allIds.every((id) => selected.includes(id));
+  const someSelected = allIds.some((id) => selected.includes(id)) && !allSelected;
 
   const toggleAll = () => {
-    if (allSelected) setSelected([]);
-    else setSelected(allIds);
+    if (allSelected) {
+      setSelected((prev) => prev.filter((id) => !allIds.includes(id)));
+    } else {
+      const newSelected = new Set([...selected, ...allIds]);
+      setSelected(Array.from(newSelected));
+    }
   };
 
   const handleCreate = async () => {
@@ -187,9 +246,19 @@ const AdminQuestionsPanel = () => {
 
   return (
     <>
-      {/* toolbar */}
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-        <Typography variant="h6">Questions</Typography>
+      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3} mt={3} px={2}>
+        <Stack direction="row" spacing={2} alignItems="center">
+          <Typography variant="h6">Questions</Typography>
+          <TextField
+            size="small"
+            placeholder="Search"
+            variant="outlined"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            sx={{ width: 200, bgcolor: 'background.paper' }}
+          />
+        </Stack>
+
         <Button
           variant="contained"
           disabled={selected.length === 0}
@@ -203,32 +272,58 @@ const AdminQuestionsPanel = () => {
         <Table>
           <TableHead>
             <TableRow>
-              {/* master checkbox */}
               <TableCell padding="checkbox">
                 <Checkbox indeterminate={someSelected} checked={allSelected} onChange={toggleAll} />
               </TableCell>
-              <TableCell>ID</TableCell>
+
+              <TableCell>
+                <TableSortLabel
+                  active={orderBy === 'id'}
+                  direction={orderBy === 'id' ? order : 'asc'}
+                  onClick={() => handleRequestSort('id')}
+                >
+                  ID
+                </TableSortLabel>
+              </TableCell>
+
               <TableCell>Case Code</TableCell>
               <TableCell>Gender</TableCell>
               <TableCell>Ages</TableCell>
-              <TableCell>Group</TableCell>
+
+              <TableCell>
+                <TableSortLabel
+                  active={orderBy === 'group'}
+                  direction={orderBy === 'group' ? order : 'asc'}
+                  onClick={() => handleRequestSort('group')}
+                >
+                  Group
+                </TableSortLabel>
+              </TableCell>
+
               <TableCell>Correct Answer</TableCell>
-              {/* difficulty column */}
-              <TableCell>Difficulty</TableCell>
+
+              <TableCell>
+                <TableSortLabel
+                  active={orderBy === 'difficulty'}
+                  direction={orderBy === 'difficulty' ? order : 'asc'}
+                  onClick={() => handleRequestSort('difficulty')}
+                >
+                  Difficulty
+                </TableSortLabel>
+              </TableCell>
+
               <TableCell>Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {questions.map((question) => {
+            {visibleQuestions.map((question) => {
               const diff = diffMap[question.id];
               const votes = diff?.total_votes ?? 0;
               const pct = diff ? Math.round(diff.hard_pct) : 0;
 
-              // progi podświetlenia
               const highlight =
                 votes >= 5 ? (pct >= 60 ? 'error' : pct >= 50 ? 'warning' : 'default') : 'default';
 
-              // wygląd komórki zależny od progu — UWAGA: bez funkcji w sx
               const diffCellSx =
                 highlight === 'error'
                   ? {
@@ -291,7 +386,6 @@ const AdminQuestionsPanel = () => {
                     <Chip label={question.correct} color="primary" variant="outlined" />
                   </TableCell>
 
-                  {/* difficulty cell with strong highlight */}
                   <TableCell sx={diffCellSx}>{diffChip}</TableCell>
 
                   <TableCell>
@@ -308,6 +402,16 @@ const AdminQuestionsPanel = () => {
                 </TableRow>
               );
             })}
+
+            {visibleQuestions.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={9} align="center" sx={{ py: 3 }}>
+                  <Typography variant="body1" color="text.secondary">
+                    No questions found matching &quot;{searchTerm}&quot;
+                  </Typography>
+                </TableCell>
+              </TableRow>
+            )}
           </TableBody>
         </Table>
       </TableContainer>
@@ -327,7 +431,6 @@ const AdminQuestionsPanel = () => {
         }}
       />
 
-      {/* create test dialog */}
       <Dialog
         open={createOpen}
         onClose={() => !creating && setCreateOpen(false)}
@@ -366,7 +469,6 @@ const AdminQuestionsPanel = () => {
         </DialogActions>
       </Dialog>
 
-      {/* snackbar */}
       <Snackbar
         open={snack.open}
         autoHideDuration={4000}

@@ -43,6 +43,7 @@ type SurveyRow = {
   education: string | null;
   experience: string | null;
   country: string | null;
+  acknowledgements: string | null;
 };
 
 type SortKey = keyof SurveyRow;
@@ -74,6 +75,7 @@ const normalize = (s: UserSurvey | Record<string, unknown>): SurveyRow => {
     education: getStr('education'),
     experience: getStr('experience'),
     country: getStr('country'),
+    acknowledgements: getStr('acknowledgements'),
   };
 };
 
@@ -191,6 +193,7 @@ const SurveysAdminPage: React.FC = () => {
       'education',
       'experience',
       'country',
+      'acknowledgements',
     ];
     const lines = [header.join(',')];
     sorted.forEach((r) => {
@@ -204,6 +207,7 @@ const SurveysAdminPage: React.FC = () => {
         r.education ?? '',
         r.experience ?? '',
         r.country ?? '',
+        r.acknowledgements ?? '',
       ].map((v) => {
         const s = String(v);
         return s.includes(',') || s.includes('"') ? `"${s.replace(/"/g, '""')}"` : s;
@@ -361,6 +365,7 @@ const SurveysAdminPage: React.FC = () => {
                   <TableCell>Education</TableCell>
                   <TableCell>Experience</TableCell>
                   <TableCell>Country</TableCell>
+                  <TableCell>Ack.</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -381,6 +386,15 @@ const SurveysAdminPage: React.FC = () => {
                     <TableCell>{row.education ?? '—'}</TableCell>
                     <TableCell>{row.experience ?? '—'}</TableCell>
                     <TableCell>{row.country ?? '—'}</TableCell>
+                    <TableCell>
+                      {row.acknowledgements === 'Yes' ? (
+                        <Chip size="small" label="Yes" color="success" variant="outlined" />
+                      ) : row.acknowledgements === 'No' ? (
+                        <Chip size="small" label="No" variant="outlined" />
+                      ) : (
+                        '—'
+                      )}
+                    </TableCell>
                   </TableRow>
                 ))}
                 {paged.length === 0 && (

@@ -27,6 +27,7 @@ import ConfirmationModal from '@/components/ui/ConfirmationModal';
 const AdminResponsesPanel = () => {
   const [responses, setResponses] = React.useState<ResponseData[]>([]);
   const [surveys, setSurveys] = React.useState<UserSurvey[]>([]);
+  const [questionsMap, setQuestionsMap] = React.useState<Record<string, QuestionData>>({});
   const [filteredResponses, setFilteredResponses] = React.useState<ResponseData[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
@@ -44,13 +45,22 @@ const AdminResponsesPanel = () => {
   React.useEffect(() => {
     const loadData = async () => {
       try {
-        const [responsesData, surveysData] = await Promise.all([
+        const [responsesData, surveysData, questionsData] = await Promise.all([
           adminClient.getAllResponses(),
           adminClient.getAllSurveyResponses(),
+          adminClient.getAllQuestions(),
         ]);
         setResponses(responsesData);
         setFilteredResponses(responsesData);
         setSurveys(surveysData);
+
+        const qMap: Record<string, QuestionData> = {};
+        if (Array.isArray(questionsData)) {
+          questionsData.forEach((q: QuestionData) => {
+            qMap[q.id.toString()] = q;
+          });
+        }
+        setQuestionsMap(qMap);
       } catch {
         setError('Failed to load data');
       } finally {
@@ -91,13 +101,14 @@ const AdminResponsesPanel = () => {
     };
 
   const handleDownloadCSV = () => {
-    // Prepare CSV data
     const csvData = filteredResponses.map((response) => {
       const survey = surveys.find((s) => s.userId?.toString() === response.userId.toString());
+      const question = questionsMap[response.questionId];
       return {
         'Case ID': response.caseCode,
         'User ID': response.userId,
         Answer: response.answer,
+        'Correct Answer': question?.correct || '',
         'Is correct': response.isCorrect ? 'Yes' : 'No',
         Time: dateConverter(response.time),
         'Screen size': response.screenSize,
@@ -113,11 +124,11 @@ const AdminResponsesPanel = () => {
       };
     });
 
-    // Convert to CSV string
     const headers = [
       'Case ID',
       'User ID',
       'Answer',
+      'Correct Answer',
       'Is correct',
       'Time',
       'Screen size',
@@ -138,14 +149,12 @@ const AdminResponsesPanel = () => {
         headers
           .map((header) => {
             const value = row[header as keyof typeof row];
-            // Escape commas and quotes in values
             return `"${String(value).replace(/"/g, '""')}"`;
           })
           .join(',')
       ),
     ].join('\n');
 
-    // Download file
     const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
@@ -222,6 +231,7 @@ const AdminResponsesPanel = () => {
               <TableCell>Case ID</TableCell>
               <TableCell>User ID</TableCell>
               <TableCell>Answer</TableCell>
+              <TableCell>Correct Answer</TableCell>
               <TableCell>Is correct</TableCell>
               <TableCell>Time</TableCell>
               <TableCell>Screen size</TableCell>
@@ -253,6 +263,7 @@ const AdminResponsesPanel = () => {
                   </Button>
                 </TableCell>
                 <TableCell>{res.answer}</TableCell>
+                <TableCell>{questionsMap[res.questionId]?.correct || '-'}</TableCell>
                 <TableCell>{res.isCorrect ? 'Yes' : 'No'}</TableCell>
                 <TableCell>{dateConverter(res.time)}</TableCell>
                 <TableCell>{res.screenSize}</TableCell>

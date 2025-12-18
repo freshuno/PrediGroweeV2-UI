@@ -8,7 +8,7 @@ type UserSurvey = {
   visionDefect: string;
   education: string;
   experience: string;
-  acknowledgements: boolean;
+  acknowledgements: boolean | string;
 };
 
 type UserData = {
